@@ -1,18 +1,20 @@
 {
-  "name": "九州旅行ダッシュボード",
-  "short_name": "TravelApp",
+  "name": "スマート旅行スケジュール費用管理アプリ",
+  "short_name": "旅マネ",
+  "description": "カレンダー・進捗WBS・ルートマップ・費用計算・写真共有が一つになったスマート旅行ダッシュボード",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#f3f4f6",
   "theme_color": "#2563eb",
+  "orientation": "portrait",
   "icons": [
     {
-      "src": "icon-192x192.png",
+      "src": "https://img.icons8.com/color/192/compass.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "icon-512x512.png",
+      "src": "https://img.icons8.com/color/512/compass.png",
       "sizes": "512x512",
       "type": "image/png"
     }
