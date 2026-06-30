@@ -11,267 +11,137 @@
     <!-- メインメニュー -->
     <div id="view-menu" class="max-w-md mx-auto space-y-4">
         <h1 class="text-2xl font-bold text-center mb-6">スケジュール管理</h1>
-        <button onclick="showView('view-create')" class="w-full py-4 bg-blue-600 text-white rounded-xl shadow-lg">新規スケジュール作成</button>
+        <button onclick="createNew()" class="w-full py-4 bg-blue-600 text-white rounded-xl shadow-lg">新規スケジュール作成</button>
         <button onclick="loadHistoryList()" class="w-full py-4 bg-white border border-gray-300 rounded-xl shadow-sm">履歴から呼び出す</button>
     </div>
 
-    <!-- 新規作成画面 -->
+    <!-- 新規作成・編集画面 -->
     <div id="view-create" class="hidden max-w-md mx-auto space-y-4">
         <button onclick="showView('view-menu')" class="text-blue-600">← メインに戻る</button>
         <h2 class="text-xl font-bold">基本設定</h2>
-        <div class="space-y-4 bg-white p-4 rounded-xl shadow-sm">
-            <div>
-                <label class="block text-sm font-medium text-gray-700">スケジュール名</label>
-                <input type="text" id="sched-name" class="w-full p-2 border rounded mt-1">
+        <div class="space-y-3 bg-white p-4 rounded-xl shadow-sm">
+            <div><label class="block text-sm font-medium">スケジュール名</label><input type="text" id="sched-name" class="w-full p-2 border rounded"></div>
+            
+            <div class="pt-2 space-y-2">
+                <label class="flex items-center space-x-2"><input type="checkbox" id="start-home"> <span>出発地点を自宅にする</span></label>
+                <label class="flex items-center space-x-2"><input type="checkbox" id="round-trip" onchange="toggleRoundTrip()"> <span>自宅から出発し自宅へ帰宅する</span></label>
             </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700">出発日時</label>
-                <input type="datetime-local" id="start-time" class="w-full p-2 border rounded mt-1">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700">メインの目的地</label>
-                <input type="text" id="main-dest" class="w-full p-2 border rounded mt-1">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700">メインの目的予定時刻</label>
-                <input type="time" id="main-time" class="w-full p-2 border rounded mt-1">
-            </div>
-            <label class="flex items-center space-x-2 pt-2">
-                <input type="checkbox" id="use-home" class="w-5 h-5"> <span>自宅を起点・終点にする</span>
-            </label>
+
+            <div><label class="block text-sm font-medium">出発日時</label><input type="datetime-local" id="start-time" class="w-full p-2 border rounded"></div>
+            <div><label class="block text-sm font-medium">目的地</label><input type="text" id="main-dest" class="w-full p-2 border rounded"></div>
+            <div><label class="block text-sm font-medium">目的の日時</label><input type="datetime-local" id="main-datetime" class="w-full p-2 border rounded"></div>
+            
+            <div id="end-home-wrapper"><label class="flex items-center space-x-2"><input type="checkbox" id="end-home"> <span>最終地点を自宅にする</span></label></div>
+            <div><label class="block text-sm font-medium">帰宅予定日時</label><input type="datetime-local" id="end-datetime" class="w-full p-2 border rounded"></div>
         </div>
 
-        <h3 class="font-bold mt-4">詳細スケジュール</h3>
+        <h3 class="font-bold mt-4">詳細スケジュール（経由地）</h3>
         <div id="schedule-container" class="space-y-2"></div>
         <div class="flex space-x-2">
             <button onclick="undoLast()" class="px-4 py-2 bg-gray-200 rounded-lg">元に戻す</button>
             <button onclick="addScheduleItem()" class="flex-1 py-2 bg-green-600 text-white rounded-lg">+ 日程を追加</button>
         </div>
-        <button onclick="previewSchedule()" class="w-full py-3 bg-indigo-600 text-white rounded-lg font-bold">プレビュー確認へ</button>
+        <button onclick="validateAndPreview()" class="w-full py-3 bg-indigo-600 text-white rounded-lg font-bold">プレビューへ</button>
     </div>
 
     <!-- プレビュー画面 -->
     <div id="view-preview" class="hidden max-w-md mx-auto space-y-4">
         <button onclick="showView('view-create')" class="text-blue-600">← 編集に戻る</button>
-        <h2 class="text-xl font-bold">スケジュールの確認</h2>
-        <div id="preview-content" class="bg-white p-4 rounded-xl shadow-sm space-y-2 text-sm"></div>
-        <button onclick="saveFinalSchedule()" class="w-full py-3 bg-blue-600 text-white rounded-lg font-bold">この内容で保存する</button>
+        <div class="w-full h-64 bg-gray-200 rounded-lg overflow-hidden border">
+            <iframe width="100%" height="100%" frameborder="0" style="border:0" src="https://www.google.com/maps/embed/v1/place?key=YOUR_API_KEY&q=Tokyo" allowfullscreen></iframe>
+        </div>
+        <div id="preview-content" class="bg-white p-4 rounded-xl shadow-sm text-sm space-y-4"></div>
+        <button onclick="saveFinalSchedule()" class="w-full py-3 bg-blue-600 text-white rounded-lg font-bold">保存する</button>
     </div>
 
     <!-- 履歴一覧 -->
     <div id="view-history" class="hidden max-w-md mx-auto space-y-4">
         <button onclick="showView('view-menu')" class="text-blue-600">← メインに戻る</button>
-        <h2 class="text-xl font-bold">保存済みの履歴</h2>
         <div id="history-list" class="space-y-2"></div>
     </div>
 
     <script>
-        let currentData = {};
-
         function showView(viewId) {
             document.querySelectorAll('div[id^="view-"]').forEach(div => div.classList.add('hidden'));
             document.getElementById(viewId).classList.remove('hidden');
         }
 
-        function addScheduleItem() {
-            const container = document.getElementById('schedule-container');
-            const div = document.createElement('div');
-            div.className = 'p-3 bg-white border rounded-lg';
-            div.innerHTML = `
-                <div class="flex space-x-2 text-xs text-gray-500 mb-1"><span>時刻</span><span>場所・内容</span></div>
-                <div class="flex space-x-2"><input type="time" class="item-time w-1/3 p-1 border rounded"><input type="text" class="item-loc w-2/3 p-1 border rounded"></div>
-            `;
-            container.appendChild(div);
+        function toggleRoundTrip() {
+            const isRoundTrip = document.getElementById('round-trip').checked;
+            const wrapper = document.getElementById('end-home-wrapper');
+            if (isRoundTrip) {
+                wrapper.classList.add('hidden');
+                document.getElementById('start-home').checked = true;
+                document.getElementById('end-home').checked = true;
+            } else {
+                wrapper.classList.remove('hidden');
+            }
         }
 
-        function undoLast() {
-            const container = document.getElementById('schedule-container');
-            if (container.lastChild) container.removeChild(container.lastChild);
+        function validateAndPreview() {
+            const start = new Date(document.getElementById('start-time').value);
+            const main = new Date(document.getElementById('main-datetime').value);
+            const end = new Date(document.getElementById('end-datetime').value);
+
+            if (start >= main || main >= end) {
+                alert('エラー: 日時の順序が正しくありません。\n出発日時 < 目的日時 < 帰宅日時の順になるように設定してください。');
+                return;
+            }
+            previewSchedule();
         }
+
+        function createNew() { document.getElementById('schedule-container').innerHTML = ''; showView('view-create'); }
+
+        function addScheduleItem(time = "", loc = "", note = "", url = "") {
+            const div = document.createElement('div');
+            div.className = 'p-3 bg-white border rounded-lg space-y-2';
+            div.innerHTML = `
+                <div class="flex space-x-2">
+                    <input type="datetime-local" class="item-time w-1/2 p-1 border" value="${time}">
+                    <input type="text" placeholder="場所" class="item-loc w-1/2 p-1 border" value="${loc}">
+                </div>
+                <input type="text" placeholder="コメント" class="item-note w-full p-1 border" value="${note}">
+                <input type="text" placeholder="URL/YouTubeID" class="item-url w-full p-1 border" value="${url}">
+            `;
+            document.getElementById('schedule-container').appendChild(div);
+        }
+
+        function undoLast() { const c = document.getElementById('schedule-container'); if (c.lastChild) c.removeChild(c.lastChild); }
 
         function previewSchedule() {
-            // 入力データをオブジェクトに格納
-            currentData = {
-                name: document.getElementById('sched-name').value,
-                start: document.getElementById('start-time').value,
-                dest: document.getElementById('main-dest').value,
-                time: document.getElementById('main-time').value,
-                useHome: document.getElementById('use-home').checked,
-                items: Array.from(document.querySelectorAll('#schedule-container > div')).map(d => ({
-                    time: d.querySelector('.item-time').value,
-                    loc: d.querySelector('.item-loc').value
-                }))
-            };
+            const isStartHome = document.getElementById('start-home').checked;
+            const isEndHome = document.getElementById('end-home').checked;
+            
+            let routeItems = [];
+            if(isStartHome) routeItems.push({time: document.getElementById('start-time').value.replace('T', ' '), loc: '自宅', note: '', url: ''});
+            
+            const userItems = Array.from(document.querySelectorAll('#schedule-container > div')).map(d => ({
+                time: d.querySelector('.item-time').value.replace('T', ' '), 
+                loc: d.querySelector('.item-loc').value,
+                note: d.querySelector('.item-note').value,
+                url: d.querySelector('.item-url').value
+            }));
+            routeItems = [...routeItems, ...userItems, {time: document.getElementById('main-datetime').value.replace('T', ' '), loc: document.getElementById('main-dest').value, note: '', url: ''}];
+            if(isEndHome) routeItems.push({time: document.getElementById('end-datetime').value.replace('T', ' '), loc: '自宅', note: '', url: ''});
 
-            const preview = document.getElementById('preview-content');
-            preview.innerHTML = `
-                <p><strong>名称:</strong> ${currentData.name}</p>
-                <p><strong>出発:</strong> ${currentData.start} ${currentData.useHome ? '(自宅起点)' : ''}</p>
-                <p><strong>目的地:</strong> ${currentData.dest} (${currentData.time})</p>
-                <hr class="my-2">
-                ${currentData.items.map(i => `<p class="border-b py-1">${i.time} - ${i.loc}</p>`).join('')}
+            const content = `
+                <p class="font-bold text-lg">${document.getElementById('sched-name').value}</p>
+                <div class="space-y-4">
+                    ${routeItems.map((i, idx) => `
+                        <div class="p-3 bg-gray-50 rounded border">
+                            <p class="font-bold text-blue-600">日程 ${idx + 1}: ${i.time} - ${i.loc}</p>
+                            ${i.note ? `<p class="text-xs text-gray-700 italic">メモ: ${i.note}</p>` : ''}
+                            ${i.url ? (i.url.includes('youtu') ? `<iframe class="w-full mt-2 h-32" src="https://www.youtube.com/embed/${i.url.split('/').pop().replace('watch?v=','')}"></iframe>` : `<a href="${i.url}" class="text-blue-500 text-xs break-all" target="_blank">${i.url}</a>`) : ''}
+                        </div>
+                    `).join('')}
+                </div>
             `;
+            document.getElementById('preview-content').innerHTML = content;
             showView('view-preview');
         }
 
-        function saveFinalSchedule() {
-            const history = JSON.parse(localStorage.getItem('mySchedules') || '[]');
-            history.push({ ...currentData, timestamp: new Date().toLocaleString() });
-            localStorage.setItem('mySchedules', JSON.stringify(history));
-            alert('保存しました');
-            showView('view-menu');
-        }
-
-        function loadHistoryList() {
-            showView('view-history');
-            const list = document.getElementById('history-list');
-            list.innerHTML = '';
-            JSON.parse(localStorage.getItem('mySchedules') || '[]').forEach((h, index) => {
-                const btn = document.createElement('button');
-                btn.className = 'w-full p-4 bg-white border rounded-lg text-left hover:bg-gray-100';
-                btn.innerHTML = `<div>${h.name}</div><div class="text-xs text-gray-500">${h.timestamp}</div>`;
-                btn.onclick = () => alert('履歴詳細を表示します（この機能は順次実装予定）');
-                list.appendChild(btn);
-            });
-        }
-    </script>
-</body>
-</html><!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Schedule Planner</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-50 min-h-screen p-4">
-
-    <!-- メインメニュー -->
-    <div id="view-menu" class="max-w-md mx-auto space-y-4">
-        <h1 class="text-2xl font-bold text-center mb-6">スケジュール管理</h1>
-        <button onclick="showView('view-create')" class="w-full py-4 bg-blue-600 text-white rounded-xl shadow-lg">新規スケジュール作成</button>
-        <button onclick="loadHistoryList()" class="w-full py-4 bg-white border border-gray-300 rounded-xl shadow-sm">履歴から呼び出す</button>
-    </div>
-
-    <!-- 新規作成画面 -->
-    <div id="view-create" class="hidden max-w-md mx-auto space-y-4">
-        <button onclick="showView('view-menu')" class="text-blue-600">← メインに戻る</button>
-        <h2 class="text-xl font-bold">基本設定</h2>
-        <div class="space-y-4 bg-white p-4 rounded-xl shadow-sm">
-            <div>
-                <label class="block text-sm font-medium text-gray-700">スケジュール名</label>
-                <input type="text" id="sched-name" class="w-full p-2 border rounded mt-1">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700">出発日時</label>
-                <input type="datetime-local" id="start-time" class="w-full p-2 border rounded mt-1">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700">メインの目的地</label>
-                <input type="text" id="main-dest" class="w-full p-2 border rounded mt-1">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700">メインの目的予定時刻</label>
-                <input type="time" id="main-time" class="w-full p-2 border rounded mt-1">
-            </div>
-            <label class="flex items-center space-x-2 pt-2">
-                <input type="checkbox" id="use-home" class="w-5 h-5"> <span>自宅を起点・終点にする</span>
-            </label>
-        </div>
-
-        <h3 class="font-bold mt-4">詳細スケジュール</h3>
-        <div id="schedule-container" class="space-y-2"></div>
-        <div class="flex space-x-2">
-            <button onclick="undoLast()" class="px-4 py-2 bg-gray-200 rounded-lg">元に戻す</button>
-            <button onclick="addScheduleItem()" class="flex-1 py-2 bg-green-600 text-white rounded-lg">+ 日程を追加</button>
-        </div>
-        <button onclick="previewSchedule()" class="w-full py-3 bg-indigo-600 text-white rounded-lg font-bold">プレビュー確認へ</button>
-    </div>
-
-    <!-- プレビュー画面 -->
-    <div id="view-preview" class="hidden max-w-md mx-auto space-y-4">
-        <button onclick="showView('view-create')" class="text-blue-600">← 編集に戻る</button>
-        <h2 class="text-xl font-bold">スケジュールの確認</h2>
-        <div id="preview-content" class="bg-white p-4 rounded-xl shadow-sm space-y-2 text-sm"></div>
-        <button onclick="saveFinalSchedule()" class="w-full py-3 bg-blue-600 text-white rounded-lg font-bold">この内容で保存する</button>
-    </div>
-
-    <!-- 履歴一覧 -->
-    <div id="view-history" class="hidden max-w-md mx-auto space-y-4">
-        <button onclick="showView('view-menu')" class="text-blue-600">← メインに戻る</button>
-        <h2 class="text-xl font-bold">保存済みの履歴</h2>
-        <div id="history-list" class="space-y-2"></div>
-    </div>
-
-    <script>
-        let currentData = {};
-
-        function showView(viewId) {
-            document.querySelectorAll('div[id^="view-"]').forEach(div => div.classList.add('hidden'));
-            document.getElementById(viewId).classList.remove('hidden');
-        }
-
-        function addScheduleItem() {
-            const container = document.getElementById('schedule-container');
-            const div = document.createElement('div');
-            div.className = 'p-3 bg-white border rounded-lg';
-            div.innerHTML = `
-                <div class="flex space-x-2 text-xs text-gray-500 mb-1"><span>時刻</span><span>場所・内容</span></div>
-                <div class="flex space-x-2"><input type="time" class="item-time w-1/3 p-1 border rounded"><input type="text" class="item-loc w-2/3 p-1 border rounded"></div>
-            `;
-            container.appendChild(div);
-        }
-
-        function undoLast() {
-            const container = document.getElementById('schedule-container');
-            if (container.lastChild) container.removeChild(container.lastChild);
-        }
-
-        function previewSchedule() {
-            // 入力データをオブジェクトに格納
-            currentData = {
-                name: document.getElementById('sched-name').value,
-                start: document.getElementById('start-time').value,
-                dest: document.getElementById('main-dest').value,
-                time: document.getElementById('main-time').value,
-                useHome: document.getElementById('use-home').checked,
-                items: Array.from(document.querySelectorAll('#schedule-container > div')).map(d => ({
-                    time: d.querySelector('.item-time').value,
-                    loc: d.querySelector('.item-loc').value
-                }))
-            };
-
-            const preview = document.getElementById('preview-content');
-            preview.innerHTML = `
-                <p><strong>名称:</strong> ${currentData.name}</p>
-                <p><strong>出発:</strong> ${currentData.start} ${currentData.useHome ? '(自宅起点)' : ''}</p>
-                <p><strong>目的地:</strong> ${currentData.dest} (${currentData.time})</p>
-                <hr class="my-2">
-                ${currentData.items.map(i => `<p class="border-b py-1">${i.time} - ${i.loc}</p>`).join('')}
-            `;
-            showView('view-preview');
-        }
-
-        function saveFinalSchedule() {
-            const history = JSON.parse(localStorage.getItem('mySchedules') || '[]');
-            history.push({ ...currentData, timestamp: new Date().toLocaleString() });
-            localStorage.setItem('mySchedules', JSON.stringify(history));
-            alert('保存しました');
-            showView('view-menu');
-        }
-
-        function loadHistoryList() {
-            showView('view-history');
-            const list = document.getElementById('history-list');
-            list.innerHTML = '';
-            JSON.parse(localStorage.getItem('mySchedules') || '[]').forEach((h, index) => {
-                const btn = document.createElement('button');
-                btn.className = 'w-full p-4 bg-white border rounded-lg text-left hover:bg-gray-100';
-                btn.innerHTML = `<div>${h.name}</div><div class="text-xs text-gray-500">${h.timestamp}</div>`;
-                btn.onclick = () => alert('履歴詳細を表示します（この機能は順次実装予定）');
-                list.appendChild(btn);
-            });
-        }
+        function saveFinalSchedule() { alert('保存しました'); showView('view-menu'); }
+        function loadHistoryList() { showView('view-history'); }
     </script>
 </body>
 </html>
