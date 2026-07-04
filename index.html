@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Schedule Planner</title>
+    <title>Schedule Planner AI</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-50 min-h-screen p-4">
 
     <div id="view-menu" class="max-w-md mx-auto space-y-4">
-        <h1 class="text-2xl font-bold text-center mb-6">スケジュール管理</h1>
+        <h1 class="text-2xl font-bold text-center mb-6">スケジュール管理 AI</h1>
         <button onclick="createNew()" class="w-full py-4 bg-blue-600 text-white rounded-xl shadow-lg">新規スケジュール作成</button>
         <button onclick="loadHistoryList()" class="w-full py-4 bg-white border border-gray-300 rounded-xl shadow-sm">履歴から呼び出す</button>
     </div>
@@ -32,37 +32,135 @@
         </div>
 
         <h3 class="font-bold mt-4">詳細スケジュール（経由地）</h3>
+        <div id="status-msg" class="text-xs text-blue-600 italic"></div>
         <div id="schedule-container" class="space-y-2"></div>
         <div class="flex space-x-2">
             <button onclick="undoLast()" class="px-4 py-2 bg-gray-200 rounded-lg">元に戻す</button>
+            <button onclick="suggestItinerary()" class="px-4 py-2 bg-purple-600 text-white rounded-lg">AIで提案</button>
             <button onclick="addScheduleItem()" class="flex-1 py-2 bg-green-600 text-white rounded-lg">+ 日程を追加</button>
         </div>
         <button onclick="validateAndPreview()" class="w-full py-3 bg-indigo-600 text-white rounded-lg font-bold">プレビューへ</button>
     </div>
 
+    <div id="view-preview" class="hidden max-w-md mx-auto space-y-4">
+        <button onclick="showView('view-create')" class="text-blue-600">← 編集に戻る</button>
+        <div class="w-full h-48 bg-gray-200 rounded-lg flex items-center justify-center border">Google Maps プレビュー領域</div>
+        <div id="preview-content" class="bg-white p-4 rounded-xl shadow-sm text-sm space-y-2"></div>
+        <button onclick="saveFinalSchedule()" class="w-full py-3 bg-blue-600 text-white rounded-lg font-bold">保存する</button>
+    </div>
+
+    <div id="view-history" class="hidden max-w-md mx-auto space-y-4">
+        <button onclick="showView('view-menu')" class="text-blue-600">← メインに戻る</button>
+        <h2 class="text-xl font-bold">履歴一覧</h2>
+        <div id="history-list" class="space-y-2"></div>
+    </div>
+
     <script>
-        // 履歴を読み込んでフォームにセットする関数
-        function loadHistoryData(index) {
-            const history = JSON.parse(localStorage.getItem('mySchedules') || '[]');
-            const h = history[index];
+        async function fetchWithRetry(url, options, retries = 3, backoff = 1000) {
+            try {
+                const response = await fetch(url, options);
+                if (response.status === 429 && retries > 0) {
+                    await new Promise(resolve => setTimeout(resolve, backoff));
+                    return fetchWithRetry(url, options, retries - 1, backoff * 2);
+                }
+                return response;
+            } catch (e) {
+                if (retries > 0) {
+                    await new Promise(resolve => setTimeout(resolve, backoff));
+                    return fetchWithRetry(url, options, retries - 1, backoff * 2);
+                }
+                throw e;
+            }
+        }
+
+        async function suggestItinerary() {
+            const status = document.getElementById('status-msg');
+            const dest = document.getElementById('main-dest').value;
+            if (!dest) { status.textContent = "※目的地を入力してからAIボタンを押してください"; return; }
             
-            document.getElementById('edit-index').value = index;
-            document.getElementById('sched-name').value = h.name;
-            document.getElementById('start-time').value = h.startTime;
-            document.getElementById('main-dest').value = h.mainDest;
-            document.getElementById('main-datetime').value = h.mainDatetime;
-            document.getElementById('end-datetime').value = h.endDatetime;
+            status.textContent = "AIが旅程を生成中...";
             
+            const prompt = `目的地: ${dest} の1日観光プランを提案して。
+            出発日時: ${document.getElementById('start-time').value}
+            目的の日時: ${document.getElementById('main-datetime').value}
+            帰宅日時: ${document.getElementById('end-datetime').value}
+            3つの観光スポットを提案し、{ "time": "HH:MM", "loc": "場所", "note": "短いメモ" } というJSON配列形式のみで答えて。`;
+
+            try {
+                const payload = { contents: [{ parts: [{ text: prompt }] }] };
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=`;
+                
+                const response = await fetchWithRetry(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const result = await response.json();
+                const text = result.candidates[0].content.parts[0].text.replace(/```json/g, '').replace(/```/g, '');
+                const plans = JSON.parse(text);
+                
+                plans.forEach(p => addScheduleItem(p.time, p.loc, p.note));
+                status.textContent = "提案を読み込みました！";
+            } catch (e) {
+                status.textContent = "エラーが発生しました。もう一度試してください。";
+                console.error(e);
+            }
+        }
+
+        function showView(viewId) {
+            document.querySelectorAll('div[id^="view-"]').forEach(div => div.classList.add('hidden'));
+            document.getElementById(viewId).classList.remove('hidden');
+        }
+
+        function toggleRoundTrip() {
+            const isRoundTrip = document.getElementById('round-trip').checked;
+            const wrapper = document.getElementById('end-home-wrapper');
+            if (isRoundTrip) {
+                wrapper.classList.add('hidden');
+                document.getElementById('start-home').checked = true;
+                document.getElementById('end-home').checked = true;
+            } else {
+                wrapper.classList.remove('hidden');
+            }
+        }
+
+        function createNew() {
+            document.getElementById('edit-index').value = "-1";
             document.getElementById('schedule-container').innerHTML = '';
-            h.items.forEach(i => addScheduleItem(i.time, i.loc, i.note, i.url));
-            
             showView('view-create');
+        }
+
+        function addScheduleItem(time = "", loc = "", note = "", url = "") {
+            const div = document.createElement('div');
+            div.className = 'p-3 bg-white border rounded-lg space-y-2';
+            div.innerHTML = `
+                <div class="flex space-x-2">
+                    <input type="datetime-local" class="item-time w-1/2 p-1 border" value="${time}">
+                    <input type="text" placeholder="場所" class="item-loc w-1/2 p-1 border" value="${loc}">
+                </div>
+                <input type="text" placeholder="コメント" class="item-note w-full p-1 border" value="${note}">
+                <input type="text" placeholder="URL/YouTubeID" class="item-url w-full p-1 border" value="${url}">
+            `;
+            document.getElementById('schedule-container').appendChild(div);
+        }
+
+        function undoLast() { const c = document.getElementById('schedule-container'); if (c.lastChild) c.removeChild(c.lastChild); }
+
+        function validateAndPreview() {
+            const start = new Date(document.getElementById('start-time').value);
+            const main = new Date(document.getElementById('main-datetime').value);
+            const end = new Date(document.getElementById('end-datetime').value);
+            if (start >= main || main >= end) { alert('エラー: 日時の順序が正しくありません。'); return; }
+            
+            const content = document.getElementById('preview-content');
+            content.innerHTML = `<p><strong>${document.getElementById('sched-name').value}</strong></p><div>プレビュー内容を表示中...</div>`;
+            showView('view-preview');
         }
 
         function saveFinalSchedule() {
             const history = JSON.parse(localStorage.getItem('mySchedules') || '[]');
             const index = parseInt(document.getElementById('edit-index').value);
-            
             const data = {
                 name: document.getElementById('sched-name').value,
                 startTime: document.getElementById('start-time').value,
@@ -78,32 +176,36 @@
                 timestamp: new Date().toLocaleString()
             };
 
-            if (index >= 0) {
-                history[index] = data; // 上書き更新
-            } else {
-                history.push(data); // 新規追加
-            }
+            if (index >= 0) history[index] = data;
+            else history.push(data);
             
             localStorage.setItem('mySchedules', JSON.stringify(history));
             alert('保存しました');
             showView('view-menu');
         }
 
-        // 履歴一覧表示を修正
         function loadHistoryList() {
             showView('view-history');
             const list = document.getElementById('history-list');
             list.innerHTML = '';
             JSON.parse(localStorage.getItem('mySchedules') || '[]').forEach((h, index) => {
                 const btn = document.createElement('button');
-                btn.className = 'w-full p-4 bg-white border rounded-lg text-left hover:bg-gray-50';
+                btn.className = 'w-full p-4 bg-white border rounded-lg text-left hover:bg-gray-100';
                 btn.innerHTML = `<div>${h.name}</div><div class="text-xs text-gray-500">${h.timestamp}</div>`;
-                btn.onclick = () => loadHistoryData(index);
+                btn.onclick = () => {
+                    document.getElementById('edit-index').value = index;
+                    document.getElementById('sched-name').value = h.name;
+                    document.getElementById('start-time').value = h.startTime;
+                    document.getElementById('main-dest').value = h.mainDest;
+                    document.getElementById('main-datetime').value = h.mainDatetime;
+                    document.getElementById('end-datetime').value = h.endDatetime;
+                    document.getElementById('schedule-container').innerHTML = '';
+                    h.items.forEach(i => addScheduleItem(i.time, i.loc, i.note, i.url));
+                    showView('view-create');
+                };
                 list.appendChild(btn);
             });
         }
-        
-        // 他の関数(showView, createNew, addScheduleItem等)は前回のコードをそのまま利用してください。
     </script>
 </body>
 </html>
