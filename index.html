@@ -166,13 +166,50 @@
     </div>
 </div>
 
-<!-- ========== 新規作成モーダル ========== -->
+<!-- ========== 新規作成ウィザード（3ステップ） ========== -->
 <div id="new-travel-modal" class="modal-overlay hidden z-[50010]" onclick="closeModalsOnBgClick(event,'new-travel-modal')">
     <div class="modal-content p-6 relative">
-        <button onclick="document.getElementById('new-travel-modal').classList.add('hidden')" class="absolute top-3 right-3 text-gray-400 hover:text-gray-600 bg-gray-100 rounded-full w-8 h-8 flex items-center justify-center"><i class="fa-solid fa-xmark text-lg"></i></button>
-        <h3 class="text-lg font-bold mb-4">旅行名を指定</h3>
-        <input type="text" id="new-travel-name" placeholder="例：秋の京都旅行" class="w-full p-3 border rounded mb-4">
-        <button onclick="createNewTravel()" class="w-full bg-green-600 text-white font-bold py-3 rounded">作成して開始</button>
+        <button onclick="closeNewTravelModal()" class="absolute top-3 right-3 text-gray-400 hover:text-gray-600 bg-gray-100 rounded-full w-8 h-8 flex items-center justify-center"><i class="fa-solid fa-xmark text-lg"></i></button>
+
+        <!-- ステップ表示 -->
+        <div class="flex items-center gap-2 mb-5 text-xs font-bold text-gray-400">
+            <span id="wizard-step-1-label" class="text-blue-600">① タイトル</span>
+            <i class="fa-solid fa-chevron-right text-[10px]"></i>
+            <span id="wizard-step-2-label">② 目的地・訪問日</span>
+            <i class="fa-solid fa-chevron-right text-[10px]"></i>
+            <span id="wizard-step-3-label">③ 出発日</span>
+        </div>
+
+        <!-- Step 1: 旅行タイトル -->
+        <div id="wizard-step-1">
+            <h3 class="text-lg font-bold mb-4">旅行のタイトルを入力</h3>
+            <input type="text" id="wizard-name" placeholder="例：秋の京都旅行" class="w-full p-3 border rounded mb-4">
+            <button onclick="wizardGoStep(2)" class="w-full bg-blue-600 text-white font-bold py-3 rounded">次へ</button>
+        </div>
+
+        <!-- Step 2: 目的地・訪問日 -->
+        <div id="wizard-step-2" class="hidden">
+            <h3 class="text-lg font-bold mb-4">目的地とその日程</h3>
+            <label class="text-xs font-bold text-gray-500">目的地</label>
+            <input type="text" id="wizard-destination" placeholder="例：太宰府天満宮" class="w-full p-3 border rounded mb-3 mt-1">
+            <label class="text-xs font-bold text-gray-500">その場所に行く日</label>
+            <input type="date" id="wizard-visit-date" class="w-full p-3 border rounded mb-4 mt-1">
+            <div class="flex gap-2">
+                <button onclick="wizardGoStep(1)" class="w-1/3 bg-gray-100 text-gray-600 font-bold py-3 rounded border border-gray-300">戻る</button>
+                <button onclick="wizardGoStep(3)" class="w-2/3 bg-blue-600 text-white font-bold py-3 rounded">次へ</button>
+            </div>
+        </div>
+
+        <!-- Step 3: 出発日 -->
+        <div id="wizard-step-3" class="hidden">
+            <h3 class="text-lg font-bold mb-4">出発日を選択</h3>
+            <label class="text-xs font-bold text-gray-500">自宅を出発する日</label>
+            <input type="date" id="wizard-departure-date" class="w-full p-3 border rounded mb-4 mt-1">
+            <div class="flex gap-2">
+                <button onclick="wizardGoStep(2)" class="w-1/3 bg-gray-100 text-gray-600 font-bold py-3 rounded border border-gray-300">戻る</button>
+                <button onclick="createNewTravel()" class="w-2/3 bg-green-600 text-white font-bold py-3 rounded">作成して開始</button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -496,24 +533,84 @@ function renderTravelList(){
 }
 
 function openNewTravelModal(){
-    document.getElementById('new-travel-name').value = '';
+    document.getElementById('wizard-name').value = '';
+    document.getElementById('wizard-destination').value = '';
+    document.getElementById('wizard-visit-date').value = '';
+    document.getElementById('wizard-departure-date').value = '';
+    wizardGoStep(1);
     document.getElementById('new-travel-modal').classList.remove('hidden');
 }
 
+function closeNewTravelModal(){
+    document.getElementById('new-travel-modal').classList.add('hidden');
+}
+
+function wizardGoStep(step){
+    if(step===2){
+        const name = document.getElementById('wizard-name').value.trim();
+        if(!name){ showToast('旅行のタイトルを入力してください', true); return; }
+    }
+    if(step===3){
+        const dest = document.getElementById('wizard-destination').value.trim();
+        const visitDate = document.getElementById('wizard-visit-date').value;
+        if(!dest){ showToast('目的地を入力してください', true); return; }
+        if(!visitDate){ showToast('目的地に行く日を選択してください', true); return; }
+    }
+    [1,2,3].forEach(n=>{
+        document.getElementById(`wizard-step-${n}`).classList.toggle('hidden', n!==step);
+        document.getElementById(`wizard-step-${n}-label`).className = n===step ? 'text-blue-600' : (n<step ? 'text-green-600' : '');
+    });
+}
+
+// 日付文字列(YYYY-MM-DD)同士の差分日数を計算（departure=1日目とした時のvisitの日数）
+function dayNumberFromDates_(departureStr, visitStr){
+    const dep = new Date(departureStr+'T00:00:00');
+    const vis = new Date(visitStr+'T00:00:00');
+    const diffDays = Math.round((vis-dep)/86400000)+1;
+    return diffDays>=1 ? diffDays : 1;
+}
+
 async function createNewTravel(){
-    const nameInput = document.getElementById('new-travel-name');
-    const name = nameInput.value.trim();
-    if(!name){ showToast('旅行名を入力してください', true); return; }
     if(!window._currentUser){ showToast('ログイン情報が確認できません', true); return; }
+    const name = document.getElementById('wizard-name').value.trim();
+    const destination = document.getElementById('wizard-destination').value.trim();
+    const visitDateStr = document.getElementById('wizard-visit-date').value;
+    const departureDateStr = document.getElementById('wizard-departure-date').value;
+    if(!name){ showToast('旅行のタイトルを入力してください', true); wizardGoStep(1); return; }
+    if(!destination || !visitDateStr){ showToast('目的地と訪問日を入力してください', true); wizardGoStep(2); return; }
+    if(!departureDateStr){ showToast('出発日を選択してください', true); return; }
+
+    const visitDay = dayNumberFromDates_(departureDateStr, visitDateStr);
+    const travelDays = Math.max(1, visitDay);
+
+    const itinerary = [
+        { id: Date.now(), day: 1, time: '', title: `${destination}へ向けて出発`, map: '', comment: '荷物・チケットを確認して出発しましょう。' }
+    ];
+    // 目的地への訪問が出発日と同日でなければ、専用の日に到着イベントを追加
+    itinerary.push({
+        id: Date.now()+1,
+        day: visitDay,
+        time: '',
+        title: `★ ${destination} 到着・観光`,
+        map: destination,
+        comment: ''
+    });
+
     const email = window._currentUser.email;
-    const initialData = { travelDays:1, itinerary:[], advanceCosts:[], paygCosts:[], statuses:{} };
+    const initialData = {
+        travelDays,
+        tripStartDate: departureDateStr, // 出発日（1日目 = この日）
+        itinerary,
+        advanceCosts: [],
+        paygCosts: [],
+        statuses: {}
+    };
     showSync(true);
     try{
         const data = await gasPost({ action:'createTravel', name, email, initialData });
         if(!data || !data.success){ showToast('作成に失敗しました', true); return; }
         travelListCache = data.travelList || travelListCache;
-        document.getElementById('new-travel-modal').classList.add('hidden');
-        nameInput.value = '';
+        closeNewTravelModal();
         selectTravel(data.travel.id);
     } catch(e){
         console.error(e);
@@ -1020,6 +1117,28 @@ function renderCalendar(){
     const c=document.getElementById('calendar-grid'); if(!c) return;
     c.innerHTML='';
     ['日','月','火','水','木','金','土'].forEach(d=>c.innerHTML+=`<div class="text-gray-400 font-medium">${d}</div>`);
+
+    if(appState.tripStartDate){
+        // 実際の出発日が設定されている旅行：本物のカレンダーとして描画
+        const start=new Date(appState.tripStartDate+'T00:00:00');
+        const startWeekday=start.getDay(); // 0=日
+        const gridStart=new Date(start); gridStart.setDate(gridStart.getDate()-startWeekday);
+        const totalDays=Math.max(14,Math.ceil((appState.travelDays+startWeekday)/7)*7);
+        for(let i=0;i<totalDays;i++){
+            const cur=new Date(gridStart); cur.setDate(cur.getDate()+i);
+            const dn=Math.round((cur-start)/86400000)+1;
+            const label=`${cur.getMonth()+1}/${cur.getDate()}`;
+            if(dn>=1&&dn<=appState.travelDays){
+                const s=getDayStyle(dn);
+                c.innerHTML+=`<div class="${s.bg} text-white font-bold rounded shadow-sm py-1.5 relative h-12 flex flex-col items-center justify-center"><span class="text-sm">${label}</span><span class="absolute bottom-1 text-[9px] scale-90 leading-none w-full text-center opacity-90">${dn}日目</span></div>`;
+            } else {
+                c.innerHTML+=`<div class="text-gray-400 py-1.5 h-12 flex items-center justify-center text-sm">${label}</div>`;
+            }
+        }
+        return;
+    }
+
+    // tripStartDate未設定の旧データ用フォールバック（従来の簡易表示）
     const startOffset=12,travelStart=14;
     const total=Math.max(14,Math.ceil((appState.travelDays+(travelStart-startOffset))/7)*7);
     for(let i=0;i<total;i++){
@@ -1086,7 +1205,8 @@ function renderTimelineAndWBS(){
         if(dayTabs){
             const tab=document.createElement('button');
             tab.className=`${style.bg} text-white px-3 py-1 rounded-full text-xs font-bold shadow-sm whitespace-nowrap hover:opacity-80 transition-opacity`;
-            tab.innerHTML=`<i class="fa-solid fa-calendar-day mr-1"></i> ${d}日目`;
+            const dateLabel = appState.tripStartDate ? (()=>{ const dt=new Date(appState.tripStartDate+'T00:00:00'); dt.setDate(dt.getDate()+(d-1)); return ` (${dt.getMonth()+1}/${dt.getDate()})`; })() : '';
+            tab.innerHTML=`<i class="fa-solid fa-calendar-day mr-1"></i> ${d}日目${dateLabel}`;
             tab.onclick=()=>{ const el=document.getElementById(`day-slide-${d}`); if(el) el.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'}); };
             dayTabs.appendChild(tab);
         }
