@@ -916,13 +916,36 @@ function renderJapanMunicipalityMap_(geoFeatures, visitedMap){
         .attr('preserveAspectRatio', 'xMidYMid meet')
         .style('width', '100%')
         .style('height', 'auto')
-        .style('display', 'block');
+        .style('display', 'block')
+        .style('background', '#eff6ff');
 
-    svg.selectAll('path').data(geoFeatures).enter().append('path')
+    // ベースの地図（訪れていない市区町村）はごく薄く、輪郭中心に表示
+    svg.selectAll('path.base').data(geoFeatures).enter().append('path')
+        .attr('class','base')
         .attr('d', path)
-        .attr('fill', f => visitedMap.has(f.properties.N03_007) ? '#059669' : '#e5e7eb')
-        .attr('stroke', '#ffffff')
+        .attr('fill', '#f3f4f6')
+        .attr('stroke', '#d1d5db')
         .attr('stroke-width', 0.3);
+
+    // 訪れた市区町村は、日本全体スケールだと小さすぎて見えなくなるため、
+    // 塗りつぶし＋太い輪郭に加えて中心点にマーカーを重ね、必ず視認できるようにする
+    const visitedFeatures = geoFeatures.filter(f => visitedMap.has(f.properties.N03_007));
+
+    svg.selectAll('path.visited').data(visitedFeatures).enter().append('path')
+        .attr('class','visited')
+        .attr('d', path)
+        .attr('fill', '#059669')
+        .attr('stroke', '#065f46')
+        .attr('stroke-width', 1.2);
+
+    svg.selectAll('circle.visited-marker').data(visitedFeatures).enter().append('circle')
+        .attr('class','visited-marker')
+        .attr('cx', f => path.centroid(f)[0])
+        .attr('cy', f => path.centroid(f)[1])
+        .attr('r', 4)
+        .attr('fill', '#059669')
+        .attr('stroke', '#ffffff')
+        .attr('stroke-width', 1.2);
 }
 
 const dayStyles = {
