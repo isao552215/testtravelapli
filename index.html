@@ -7,6 +7,8 @@
     <link rel="manifest" href="manifest.json">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson-client/3.1.0/topojson-client.min.js"></script>
     <!-- Firebase -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -163,6 +165,23 @@
             class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 shadow-lg">
             <i class="fa-solid fa-plus mr-2"></i> 新規スケジュールを作成
         </button>
+        <button onclick="openVisitedMap()" 
+            class="w-full mt-3 bg-white text-emerald-700 font-bold py-3 rounded-xl border-2 border-emerald-500 hover:bg-emerald-50">
+            <i class="fa-solid fa-map-location-dot mr-2"></i> 訪れた場所を見る
+        </button>
+    </div>
+</div>
+
+<!-- ========== 訪れた場所マップ ========== -->
+<div id="visited-map-modal" class="modal-overlay hidden z-[50010]" onclick="closeModalsOnBgClick(event,'visited-map-modal')">
+    <div class="modal-content p-5 relative max-w-2xl">
+        <button onclick="document.getElementById('visited-map-modal').classList.add('hidden')" class="absolute top-3 right-3 text-gray-400 hover:text-gray-600 bg-gray-100 rounded-full w-8 h-8 flex items-center justify-center z-10"><i class="fa-solid fa-xmark text-lg"></i></button>
+        <h3 class="text-base font-bold mb-1"><i class="fa-solid fa-map-location-dot text-emerald-600"></i> 訪れた場所（市区町村）</h3>
+        <p class="text-xs text-gray-400 mb-3">完了にした予定の場所をもとに、自動で色を塗っています</p>
+        <div id="visited-map-status" class="text-center text-gray-400 text-sm py-10"><i class="fa-solid fa-spinner sync-spinner"></i> 集計中...</div>
+        <div id="visited-map-svg-wrap" class="w-full overflow-hidden rounded-lg border border-gray-200 bg-blue-50"></div>
+        <div id="visited-map-list" class="mt-3 text-xs text-gray-500"></div>
+        <p class="mt-3 text-[10px] text-gray-300">地図データ: 国土数値情報（国土交通省）/ 加工: smartnews-smri/japan-topography</p>
     </div>
 </div>
 
@@ -390,6 +409,14 @@
                 <div><label class="block text-gray-600 mb-1 font-medium">時間（HH:MM）</label><input type="text" id="new-time" placeholder="例) 12:00" required class="w-full p-2.5 border border-gray-300 rounded bg-gray-50 focus:bg-white text-sm"></div>
             </div>
             <div><label class="block text-gray-600 mb-1 font-medium">スポット名</label><input type="text" id="new-title" required class="w-full p-2.5 border border-gray-300 rounded bg-gray-50 focus:bg-white font-bold text-sm"></div>
+            <div class="relative">
+                <label class="block text-gray-600 mb-1 font-medium"><i class="fa-solid fa-map-pin text-emerald-600"></i> 市区町村（任意・「訪れた場所」マップ用）</label>
+                <input type="text" id="new-place" placeholder="市区町村名で検索（例：太宰府）" oninput="searchMunicipality('new')" onfocusout="hideMunicipalityCandidatesLater('new')" autocomplete="off" class="w-full p-2.5 border border-gray-300 rounded bg-gray-50 focus:bg-white text-sm">
+                <input type="hidden" id="new-place-code">
+                <input type="hidden" id="new-place-name">
+                <div id="new-place-candidates" class="hidden absolute z-20 left-0 right-0 mt-1 bg-white border border-gray-200 rounded shadow-lg max-h-40 overflow-y-auto"></div>
+                <div id="new-place-selected" class="mt-1 text-xs"></div>
+            </div>
             <div class="grid grid-cols-1 gap-3">
                 <div><label class="block text-gray-600 mb-1 font-medium"><i class="fa-brands fa-youtube text-red-500"></i> YouTube URL</label><input type="url" id="new-youtube" class="w-full p-2.5 border border-gray-300 rounded bg-gray-50 focus:bg-white text-sm"></div>
                 <div><label class="block text-gray-600 mb-1 font-medium"><i class="fa-solid fa-link text-blue-500"></i> Map/参考 URL</label><input type="url" id="new-map" class="w-full p-2.5 border border-gray-300 rounded bg-gray-50 focus:bg-white text-sm"></div>
@@ -411,6 +438,14 @@
                 <div><label class="block text-gray-600 mb-1 font-medium">時間（並び替え用）</label><input type="text" id="edit-time" required class="w-full p-2.5 border border-gray-300 rounded bg-gray-50 focus:bg-white text-sm"></div>
             </div>
             <div><label class="block text-gray-600 mb-1 font-medium">スポット名</label><input type="text" id="edit-title" required class="w-full p-2.5 border border-gray-300 rounded bg-gray-50 focus:bg-white font-bold text-sm"></div>
+            <div class="relative">
+                <label class="block text-gray-600 mb-1 font-medium"><i class="fa-solid fa-map-pin text-emerald-600"></i> 市区町村（任意・「訪れた場所」マップ用）</label>
+                <input type="text" id="edit-place" placeholder="市区町村名で検索（例：太宰府）" oninput="searchMunicipality('edit')" onfocusout="hideMunicipalityCandidatesLater('edit')" autocomplete="off" class="w-full p-2.5 border border-gray-300 rounded bg-gray-50 focus:bg-white text-sm">
+                <input type="hidden" id="edit-place-code">
+                <input type="hidden" id="edit-place-name">
+                <div id="edit-place-candidates" class="hidden absolute z-20 left-0 right-0 mt-1 bg-white border border-gray-200 rounded shadow-lg max-h-40 overflow-y-auto"></div>
+                <div id="edit-place-selected" class="mt-1 text-xs"></div>
+            </div>
             <div class="grid grid-cols-1 gap-3">
                 <div><label class="block text-gray-600 mb-1 font-medium">YouTube URL</label><input type="url" id="edit-youtube" class="w-full p-2.5 border border-gray-300 rounded bg-gray-50 focus:bg-white text-sm"></div>
                 <div><label class="block text-gray-600 mb-1 font-medium">Map URL</label><input type="url" id="edit-map" class="w-full p-2.5 border border-gray-300 rounded bg-gray-50 focus:bg-white text-sm"></div>
@@ -528,8 +563,26 @@ function renderTravelList(){
                 <div class="mt-1">${badge}</div>
             </button>
             ${mine ? `<button onclick="openShareModal('${t.id}')" class="text-gray-400 hover:text-blue-600 px-3" title="共有設定"><i class="fa-solid fa-user-plus"></i></button>` : ''}
+            ${mine ? `<button onclick="confirmDeleteTravel('${t.id}')" class="text-gray-400 hover:text-red-500 px-3" title="削除"><i class="fa-solid fa-trash"></i></button>` : ''}
         </div>`;
     }).join('');
+}
+
+function confirmDeleteTravel(travelId){
+    const t = travelListCache.find(x=>x.id===travelId);
+    if(!t) return;
+    showCustomConfirm(`「${t.name}」を削除します。\nこの操作は取り消せません。本当によろしいですか？`, async ()=>{
+        try{
+            const data = await gasPost({ action:'deleteTravel', travelId, email: window._currentUser.email });
+            if(!data || !data.success){ showToast(data && data.error ? data.error : '削除に失敗しました', true); return; }
+            travelListCache = data.travelList || travelListCache.filter(x=>x.id!==travelId);
+            renderTravelList();
+            showToast('削除しました');
+        } catch(e){
+            console.error(e);
+            showToast('削除に失敗しました', true);
+        }
+    });
 }
 
 function openNewTravelModal(){
@@ -583,8 +636,13 @@ async function createNewTravel(){
     const visitDay = dayNumberFromDates_(departureDateStr, visitDateStr);
     const travelDays = Math.max(1, visitDay);
 
+    // 目的地の文字列から市区町村候補を推測（1件だけ一致すれば自動でタグ付け。曖昧な場合は未タグのまま＝後で編集画面から選択可能）
+    const municipalities = await loadMunicipalityList();
+    const guess = municipalities.filter(m => municipalityLabel_(m).includes(destination) || destination.includes(m.city));
+    const autoTag = guess.length === 1 ? { code: guess[0].code, name: municipalityLabel_(guess[0]) } : null;
+
     const itinerary = [
-        { id: Date.now(), day: 1, time: '', title: `${destination}へ向けて出発`, map: '', comment: '荷物・チケットを確認して出発しましょう。' }
+        { id: Date.now(), day: 1, time: '', title: `${destination}へ向けて出発`, map: '', placeCode: null, placeName: null, comment: '荷物・チケットを確認して出発しましょう。' }
     ];
     // 目的地への訪問が出発日と同日でなければ、専用の日に到着イベントを追加
     itinerary.push({
@@ -592,7 +650,9 @@ async function createNewTravel(){
         day: visitDay,
         time: '',
         title: `★ ${destination} 到着・観光`,
-        map: destination,
+        map: '',
+        placeCode: autoTag ? autoTag.code : null,
+        placeName: autoTag ? autoTag.name : null,
         comment: ''
     });
 
@@ -694,6 +754,158 @@ async function removeShare(email){
         console.error(e);
         showToast('解除に失敗しました', true);
     }
+}
+
+// ===================================================
+// 市区町村 候補検索・選択（訪れた場所マップ用タグ付け）
+// ===================================================
+const MUNICIPALITY_LIST_URL = './municipalities.json';
+let municipalityListCache = null; // [{code, pref, gun, city}, ...]
+
+async function loadMunicipalityList(){
+    if(municipalityListCache) return municipalityListCache;
+    try{
+        const res = await fetch(MUNICIPALITY_LIST_URL);
+        if(!res.ok) throw new Error('failed');
+        municipalityListCache = await res.json();
+    } catch(e){
+        console.warn('municipality list load failed', e.message);
+        municipalityListCache = [];
+    }
+    return municipalityListCache;
+}
+// ページ読み込み時にバックグラウンドで先読みしておく（候補検索を即応答させるため）
+loadMunicipalityList();
+
+function municipalityLabel_(m){ return `${m.pref}${m.city}`; }
+
+async function searchMunicipality(prefix){
+    const input = document.getElementById(`${prefix}-place`);
+    const candidatesEl = document.getElementById(`${prefix}-place-candidates`);
+    const q = input.value.trim();
+    // 入力を変えたら、それまでの確定選択は一旦クリア（別の場所を選び直す前提）
+    document.getElementById(`${prefix}-place-code`).value = '';
+    document.getElementById(`${prefix}-place-name`).value = '';
+    document.getElementById(`${prefix}-place-selected`).innerHTML = '';
+
+    if(!q){ candidatesEl.classList.add('hidden'); candidatesEl.innerHTML=''; return; }
+    const list = await loadMunicipalityList();
+    const matches = list.filter(m => municipalityLabel_(m).includes(q)).slice(0,20);
+    if(!matches.length){
+        candidatesEl.innerHTML = '<div class="px-3 py-2 text-xs text-gray-400">一致する市区町村が見つかりません</div>';
+        candidatesEl.classList.remove('hidden');
+        return;
+    }
+    candidatesEl.innerHTML = matches.map(m =>
+        `<button type="button" onclick="selectMunicipality('${prefix}','${m.code}')" class="block w-full text-left px-3 py-2 text-xs hover:bg-emerald-50 border-b border-gray-100 last:border-0">${escapeHtml(municipalityLabel_(m))}</button>`
+    ).join('');
+    candidatesEl.classList.remove('hidden');
+}
+
+function hideMunicipalityCandidatesLater(prefix){
+    setTimeout(()=>{ const el=document.getElementById(`${prefix}-place-candidates`); if(el){ el.classList.add('hidden'); } }, 200);
+}
+
+async function selectMunicipality(prefix, code){
+    const list = await loadMunicipalityList();
+    const m = list.find(x=>x.code===code);
+    if(!m) return;
+    const label = municipalityLabel_(m);
+    document.getElementById(`${prefix}-place`).value = label;
+    document.getElementById(`${prefix}-place-code`).value = m.code;
+    document.getElementById(`${prefix}-place-name`).value = label;
+    document.getElementById(`${prefix}-place-selected`).innerHTML = `<span class="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full font-bold"><i class="fa-solid fa-check"></i> ${escapeHtml(label)} を選択中</span>`;
+    const candidatesEl = document.getElementById(`${prefix}-place-candidates`);
+    candidatesEl.classList.add('hidden'); candidatesEl.innerHTML='';
+}
+
+// ===================================================
+// 訪れた場所マップ（市区町村レベル・選択済みタグを集計）
+// ===================================================
+const JAPAN_MUNICIPALITY_GEOJSON_URL = 'https://raw.githubusercontent.com/smartnews-smri/japan-topography/main/data/municipality/geojson/s0001/N03-21_210101.json';
+let japanGeoFeaturesCache = null;
+
+async function loadJapanMunicipalityGeoJson(){
+    if(japanGeoFeaturesCache) return japanGeoFeaturesCache;
+    try{
+        const cached = localStorage.getItem('japanMunicipalityGeoJson_v1');
+        if(cached){ japanGeoFeaturesCache = JSON.parse(cached); return japanGeoFeaturesCache; }
+    } catch(e){ /* 読み込み失敗時は無視して再取得 */ }
+    const res = await fetch(JAPAN_MUNICIPALITY_GEOJSON_URL);
+    if(!res.ok) throw new Error('地図データの取得に失敗しました');
+    const raw = await res.json();
+    const features = Array.isArray(raw) ? raw : (raw.features || []);
+    japanGeoFeaturesCache = features;
+    try{ localStorage.setItem('japanMunicipalityGeoJson_v1', JSON.stringify(features)); } catch(e){ /* 容量超過等は無視（次回また取得） */ }
+    return features;
+}
+
+// 完了済み予定から、選択済みの市区町村タグ（place-code）を旅行をまたいで集計
+function collectVisitedMunicipalities_(){
+    const visited = new Map(); // code -> name（表示ラベル）
+    travelListCache.forEach(t=>{
+        const d = t.data; if(!d || !d.itinerary) return;
+        const statuses = d.statuses || {};
+        d.itinerary.forEach(item=>{
+            if(statuses[item.id]==='1' && item.placeCode){
+                if(!visited.has(item.placeCode)) visited.set(item.placeCode, item.placeName || item.place || item.placeCode);
+            }
+        });
+    });
+    return visited;
+}
+
+async function openVisitedMap(){
+    document.getElementById('visited-map-modal').classList.remove('hidden');
+    const statusEl = document.getElementById('visited-map-status');
+    const svgWrap = document.getElementById('visited-map-svg-wrap');
+    const listEl = document.getElementById('visited-map-list');
+    statusEl.style.display = 'block';
+    statusEl.innerHTML = '<i class="fa-solid fa-spinner sync-spinner"></i> 地図を作成中...';
+    svgWrap.innerHTML = '';
+    listEl.innerHTML = '';
+
+    try{
+        const visited = collectVisitedMunicipalities_();
+        if(visited.size === 0){
+            statusEl.innerHTML = '完了にした予定の中に、市区町村が選択されたものがまだありません。<br>予定の編集画面で「市区町村」欄から候補を選び、完了にすると反映されます。';
+            return;
+        }
+
+        const geoFeatures = await loadJapanMunicipalityGeoJson();
+        statusEl.style.display = 'none';
+        renderJapanMunicipalityMap_(geoFeatures, visited);
+
+        let listHtml = `<p class="font-bold text-gray-600 mb-1">訪れた市区町村（${visited.size}件）</p>`;
+        listHtml += '<div class="flex flex-wrap gap-1">' + Array.from(visited.values())
+            .sort((a,b)=>a.localeCompare(b,'ja'))
+            .map(name=>`<span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-[11px] font-bold">${escapeHtml(name)}</span>`).join('') + '</div>';
+        listEl.innerHTML = listHtml;
+    } catch(e){
+        console.error(e);
+        statusEl.style.display = 'block';
+        statusEl.innerHTML = '地図の作成に失敗しました。時間をおいて再度お試しください。';
+    }
+}
+
+function renderJapanMunicipalityMap_(geoFeatures, visitedMap){
+    const wrap = document.getElementById('visited-map-svg-wrap');
+    wrap.innerHTML = '';
+    const width = wrap.clientWidth || 320;
+    const height = Math.round(width*0.95);
+    const collection = { type:'FeatureCollection', features: geoFeatures };
+    const projection = d3.geoMercator().fitSize([width,height], collection);
+    const path = d3.geoPath().projection(projection);
+
+    const svg = d3.select(wrap).append('svg')
+        .attr('width', width).attr('height', height)
+        .attr('viewBox', `0 0 ${width} ${height}`);
+
+    svg.selectAll('path').data(geoFeatures).enter().append('path')
+        .attr('d', path)
+        .attr('fill', f => visitedMap.has(f.properties.N03_007) ? '#059669' : '#e5e7eb')
+        .attr('stroke', '#ffffff')
+        .attr('stroke-width', 0.3);
 }
 
 const dayStyles = {
@@ -1310,24 +1522,30 @@ function removeTravelDay(d){
     if(appState.travelDays<=1){ showToast('最低1日は必要です。',true); return; }
     showCustomConfirm(`削除すると以降の日程が繰り上がります。\n本当によろしいですか？`,()=>{ appState.itinerary=appState.itinerary.filter(i=>i.day!==d); appState.itinerary.forEach(i=>{if(i.day>d) i.day--;}); appState.travelDays--; renderAll(); markUnsaved(); });
 }
-function openAddModal(day){ document.getElementById('add-item-form').reset(); if(day) document.getElementById('new-day').value=day; document.getElementById('add-modal').classList.remove('hidden'); }
+function openAddModal(day){ document.getElementById('add-item-form').reset(); if(day) document.getElementById('new-day').value=day; document.getElementById('new-place-candidates').classList.add('hidden'); document.getElementById('new-place-candidates').innerHTML=''; document.getElementById('new-place-selected').innerHTML=''; document.getElementById('add-modal').classList.remove('hidden'); }
 function closeAddModal(){ document.getElementById('add-modal').classList.add('hidden'); }
 function handleAddItem(e){
     e.preventDefault();
-    appState.itinerary.push({id:Date.now(),day:parseInt(document.getElementById('new-day').value),time:document.getElementById('new-time').value,title:document.getElementById('new-title').value,youtube:document.getElementById('new-youtube').value||null,map:document.getElementById('new-map').value||null,comment:''});
+    appState.itinerary.push({id:Date.now(),day:parseInt(document.getElementById('new-day').value),time:document.getElementById('new-time').value,title:document.getElementById('new-title').value,youtube:document.getElementById('new-youtube').value||null,map:document.getElementById('new-map').value||null,placeCode:document.getElementById('new-place-code').value||null,placeName:document.getElementById('new-place-name').value||null,comment:''});
     sortItinerary(); closeAddModal(); renderTimelineAndWBS(); markUnsaved();
 }
 function handleDeleteItem(id){ showCustomConfirm('この予定を削除しますか？',()=>{ appState.itinerary=appState.itinerary.filter(i=>i.id!==id); delete appState.statuses[id]; renderTimelineAndWBS(); markUnsaved(); }); }
 function openEditModal(id){
     const item=appState.itinerary.find(i=>i.id===id); if(!item) return;
     document.getElementById('edit-id').value=item.id; document.getElementById('edit-day').value=item.day; document.getElementById('edit-time').value=item.time; document.getElementById('edit-title').value=item.title; document.getElementById('edit-youtube').value=item.youtube||''; document.getElementById('edit-map').value=item.map||'';
+    document.getElementById('edit-place').value=item.placeName||'';
+    document.getElementById('edit-place-code').value=item.placeCode||'';
+    document.getElementById('edit-place-name').value=item.placeName||'';
+    document.getElementById('edit-place-candidates').classList.add('hidden');
+    document.getElementById('edit-place-candidates').innerHTML='';
+    document.getElementById('edit-place-selected').innerHTML = item.placeCode ? `<span class="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full font-bold"><i class="fa-solid fa-check"></i> ${escapeHtml(item.placeName)} を選択中</span>` : '';
     document.getElementById('edit-modal').classList.remove('hidden');
 }
 function closeEditModal(){ document.getElementById('edit-modal').classList.add('hidden'); }
 function submitEdit(e){
     e.preventDefault();
     const id=parseInt(document.getElementById('edit-id').value); const item=appState.itinerary.find(i=>i.id===id);
-    if(item){ item.day=parseInt(document.getElementById('edit-day').value); item.time=document.getElementById('edit-time').value; item.title=document.getElementById('edit-title').value; item.youtube=document.getElementById('edit-youtube').value||null; item.map=document.getElementById('edit-map').value||null; sortItinerary(); renderTimelineAndWBS(); closeEditModal(); markUnsaved(); }
+    if(item){ item.day=parseInt(document.getElementById('edit-day').value); item.time=document.getElementById('edit-time').value; item.title=document.getElementById('edit-title').value; item.youtube=document.getElementById('edit-youtube').value||null; item.map=document.getElementById('edit-map').value||null; item.placeCode=document.getElementById('edit-place-code').value||null; item.placeName=document.getElementById('edit-place-name').value||null; sortItinerary(); renderTimelineAndWBS(); closeEditModal(); markUnsaved(); }
 }
 
 function renderAllCosts(){
