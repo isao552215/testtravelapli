@@ -831,11 +831,11 @@ async function loadJapanMunicipalityGeoJson(){
         const cached = localStorage.getItem('japanMunicipalityGeoJson_v1');
         if(cached){
             const parsed = JSON.parse(cached);
-            if(Array.isArray(parsed) && parsed.length>0){
+            if(Array.isArray(parsed) && parsed.length>=1000){
                 japanGeoFeaturesCache = parsed;
                 return japanGeoFeaturesCache;
             }
-            // 空/壊れたキャッシュは破棄して再取得する
+            // 件数が明らかに少なすぎる（壊れた/古い）キャッシュは破棄して再取得する
             localStorage.removeItem('japanMunicipalityGeoJson_v1');
         }
     } catch(e){ /* 読み込み失敗時は無視して再取得 */ }
@@ -843,7 +843,7 @@ async function loadJapanMunicipalityGeoJson(){
     if(!res.ok) throw new Error('地図データの取得に失敗しました（HTTP '+res.status+'）');
     const raw = await res.json();
     const features = Array.isArray(raw) ? raw : (raw.features || []);
-    if(!features.length) throw new Error('地図データの中身が空でした');
+    if(features.length<1000) throw new Error('地図データの件数が想定より少なすぎます（'+features.length+'件）');
     japanGeoFeaturesCache = features;
     try{ localStorage.setItem('japanMunicipalityGeoJson_v1', JSON.stringify(features)); } catch(e){ /* 容量超過等は無視（次回また取得） */ }
     return features;
@@ -946,6 +946,12 @@ function renderJapanMunicipalityMap_(geoFeatures, visitedMap){
         .attr('fill', '#059669')
         .attr('stroke', '#ffffff')
         .attr('stroke-width', 1.2);
+
+    // 一時的な調査用表示（原因特定のため）
+    const dbg = document.createElement('div');
+    dbg.className = 'text-[10px] text-gray-400 mt-1';
+    dbg.textContent = `[デバッグ] 全${geoFeatures.length}件中、${visitedFeatures.length}件を緑表示`;
+    wrap.parentElement.insertBefore(dbg, wrap.nextSibling);
 }
 
 const dayStyles = {
