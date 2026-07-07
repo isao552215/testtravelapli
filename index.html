@@ -826,15 +826,24 @@ const JAPAN_MUNICIPALITY_GEOJSON_URL = 'https://raw.githubusercontent.com/smartn
 let japanGeoFeaturesCache = null;
 
 async function loadJapanMunicipalityGeoJson(){
-    if(japanGeoFeaturesCache) return japanGeoFeaturesCache;
+    if(japanGeoFeaturesCache && japanGeoFeaturesCache.length) return japanGeoFeaturesCache;
     try{
         const cached = localStorage.getItem('japanMunicipalityGeoJson_v1');
-        if(cached){ japanGeoFeaturesCache = JSON.parse(cached); return japanGeoFeaturesCache; }
+        if(cached){
+            const parsed = JSON.parse(cached);
+            if(Array.isArray(parsed) && parsed.length>0){
+                japanGeoFeaturesCache = parsed;
+                return japanGeoFeaturesCache;
+            }
+            // 空/壊れたキャッシュは破棄して再取得する
+            localStorage.removeItem('japanMunicipalityGeoJson_v1');
+        }
     } catch(e){ /* 読み込み失敗時は無視して再取得 */ }
     const res = await fetch(JAPAN_MUNICIPALITY_GEOJSON_URL);
-    if(!res.ok) throw new Error('地図データの取得に失敗しました');
+    if(!res.ok) throw new Error('地図データの取得に失敗しました（HTTP '+res.status+'）');
     const raw = await res.json();
     const features = Array.isArray(raw) ? raw : (raw.features || []);
+    if(!features.length) throw new Error('地図データの中身が空でした');
     japanGeoFeaturesCache = features;
     try{ localStorage.setItem('japanMunicipalityGeoJson_v1', JSON.stringify(features)); } catch(e){ /* 容量超過等は無視（次回また取得） */ }
     return features;
@@ -891,15 +900,23 @@ async function openVisitedMap(){
 function renderJapanMunicipalityMap_(geoFeatures, visitedMap){
     const wrap = document.getElementById('visited-map-svg-wrap');
     wrap.innerHTML = '';
-    const width = wrap.clientWidth || 320;
-    const height = Math.round(width*0.95);
+    if(!geoFeatures || !geoFeatures.length){
+        wrap.innerHTML = '<p class="text-center text-red-500 text-xs py-10">地図データが空でした。時間をおいて再度お試しください。</p>';
+        return;
+    }
+    // コンテナの実測サイズに関わらず必ず表示されるよう、内部座標は固定サイズにし、
+    // 実際の見た目のサイズはCSS(width:100%)側でコンテナに合わせて拡縮する
+    const width = 400, height = 380;
     const collection = { type:'FeatureCollection', features: geoFeatures };
     const projection = d3.geoMercator().fitSize([width,height], collection);
     const path = d3.geoPath().projection(projection);
 
     const svg = d3.select(wrap).append('svg')
-        .attr('width', width).attr('height', height)
-        .attr('viewBox', `0 0 ${width} ${height}`);
+        .attr('viewBox', `0 0 ${width} ${height}`)
+        .attr('preserveAspectRatio', 'xMidYMid meet')
+        .style('width', '100%')
+        .style('height', 'auto')
+        .style('display', 'block');
 
     svg.selectAll('path').data(geoFeatures).enter().append('path')
         .attr('d', path)
