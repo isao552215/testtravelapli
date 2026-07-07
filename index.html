@@ -822,13 +822,13 @@ async function selectMunicipality(prefix, code){
 // ===================================================
 // 訪れた場所マップ（市区町村レベル・選択済みタグを集計）
 // ===================================================
-const JAPAN_MUNICIPALITY_GEOJSON_URL = 'https://raw.githubusercontent.com/smartnews-smri/japan-topography/main/data/municipality/geojson/s0001/N03-21_210101.json';
+const JAPAN_MUNICIPALITY_GEOJSON_URL = './japan_municipalities.json';
 let japanGeoFeaturesCache = null;
 
 async function loadJapanMunicipalityGeoJson(){
     if(japanGeoFeaturesCache && japanGeoFeaturesCache.length) return japanGeoFeaturesCache;
     try{
-        const cached = localStorage.getItem('japanMunicipalityGeoJson_v1');
+        const cached = localStorage.getItem('japanMunicipalityGeoJson_v2');
         if(cached){
             const parsed = JSON.parse(cached);
             if(Array.isArray(parsed) && parsed.length>=1000){
@@ -836,7 +836,7 @@ async function loadJapanMunicipalityGeoJson(){
                 return japanGeoFeaturesCache;
             }
             // 件数が明らかに少なすぎる（壊れた/古い）キャッシュは破棄して再取得する
-            localStorage.removeItem('japanMunicipalityGeoJson_v1');
+            localStorage.removeItem('japanMunicipalityGeoJson_v2');
         }
     } catch(e){ /* 読み込み失敗時は無視して再取得 */ }
     const res = await fetch(JAPAN_MUNICIPALITY_GEOJSON_URL);
@@ -845,7 +845,7 @@ async function loadJapanMunicipalityGeoJson(){
     const features = Array.isArray(raw) ? raw : (raw.features || []);
     if(features.length<1000) throw new Error('地図データの件数が想定より少なすぎます（'+features.length+'件）');
     japanGeoFeaturesCache = features;
-    try{ localStorage.setItem('japanMunicipalityGeoJson_v1', JSON.stringify(features)); } catch(e){ /* 容量超過等は無視（次回また取得） */ }
+    try{ localStorage.setItem('japanMunicipalityGeoJson_v2', JSON.stringify(features)); } catch(e){ /* 容量超過等は無視（次回また取得） */ }
     return features;
 }
 
@@ -946,12 +946,6 @@ function renderJapanMunicipalityMap_(geoFeatures, visitedMap){
         .attr('fill', '#059669')
         .attr('stroke', '#ffffff')
         .attr('stroke-width', 1.2);
-
-    // 一時的な調査用表示（原因特定のため）
-    const dbg = document.createElement('div');
-    dbg.className = 'text-[10px] text-gray-400 mt-1';
-    dbg.textContent = `[デバッグ] 全${geoFeatures.length}件中、${visitedFeatures.length}件を緑表示`;
-    wrap.parentElement.insertBefore(dbg, wrap.nextSibling);
 }
 
 const dayStyles = {
