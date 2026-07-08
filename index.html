@@ -1061,8 +1061,8 @@ const DESIGN_SETS = {
     watercolor: {
         id: 'watercolor',
         name: '水彩画風',
-        monthImage: (m) => `./design-sets/watercolor/${m}月.jpg`,
-        prefImages: ['北海道','茨城','山形','秋田','千葉','東京','栃木','福島'].map(p => `./design-sets/watercolor/${p}.jpg`)
+        monthImage: (m) => `./design-sets/watercolor/month-${String(m).padStart(2,'0')}.jpg`,
+        prefImages: ['hokkaido','ibaraki','yamagata','akita','chiba','tokyo','tochigi','fukushima'].map(p => `./design-sets/watercolor/pref-${p}.jpg`)
     }
 };
 let currentDesignSetId = localStorage.getItem('designSetId') || 'none';
