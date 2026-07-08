@@ -667,12 +667,19 @@ async function loadTravelList(){
     }
 }
 
-function updateVisitedCountText(){
+async function updateVisitedCountText(){
     const el = document.getElementById('visited-count-text');
     if(!el) return;
     try{
         const visited = collectVisitedMunicipalities_();
-        el.textContent = visited.size > 0 ? `これまでに${visited.size}市区町村を訪れました` : 'まだ訪れた場所がありません';
+        const list = await loadMunicipalityList();
+        const total = list.length || 1894;
+        if(visited.size > 0){
+            const pct = (visited.size/total*100).toFixed(1);
+            el.innerHTML = `全${total}市区町村のうち${visited.size}市区町村を訪れました<br><span class="text-[11px] opacity-80">全国訪問${pct}％達成</span>`;
+        } else {
+            el.textContent = 'まだ訪れた場所がありません';
+        }
     } catch(e){
         el.textContent = '';
     }
@@ -1106,7 +1113,7 @@ function renderJapanMunicipalityMap_(geoFeatures, prefFeatures, visitedMap){
             .attr('d', path)
             .attr('fill', 'none')
             .attr('stroke', '#4b5563')
-            .attr('stroke-width', 0.9)
+            .attr('stroke-width', 0.35)
             .attr('stroke-linejoin', 'round');
     }
 
