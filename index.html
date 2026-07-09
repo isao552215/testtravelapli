@@ -846,16 +846,27 @@ async function createNewTravel(){
     }
 }
 
+// サーバーから取得したデータの欠損・型崩れを一括で補正する（描画処理が異常データで落ちるのを防ぐ）
+function normalizeAppState(){
+    if(!appState.statuses)     appState.statuses = {};
+    if(!appState.advanceCosts) appState.advanceCosts = [];
+    if(!appState.paygCosts)    appState.paygCosts = [];
+    if(!appState.itinerary)    appState.itinerary = [];
+    if(!appState.travelDays)   appState.travelDays = 1;
+    appState.itinerary.forEach(i=>{
+        if(typeof i.title !== 'string') i.title = i.title != null ? String(i.title) : '';
+        if(typeof i.time  !== 'string') i.time  = i.time  != null ? String(i.time)  : '';
+        if(typeof i.day   !== 'number' || isNaN(i.day)) i.day = 1;
+    });
+}
+
 function selectTravel(travelId){
     const t = travelListCache.find(x=>x.id===travelId);
     if(!t){ showToast('旅行データが見つかりませんでした', true); return; }
     currentTravelId = t.id;
     currentTravelMeta = { owner: t.owner, sharedWith: t.sharedWith || [] };
     appState = (t.data && t.data.itinerary) ? t.data : JSON.parse(JSON.stringify(fallbackInitialData));
-    if(!appState.statuses)     appState.statuses = {};
-    if(!appState.advanceCosts) appState.advanceCosts = [];
-    if(!appState.paygCosts)    appState.paygCosts = [];
-    if(!appState.itinerary)    appState.itinerary = [];
+    normalizeAppState();
     if(!appState.travelDays)   appState.travelDays = 1;
     currentTimestamp = t.updatedAt || 0;
     cloudPhotos = allPhotosCache;
@@ -1596,11 +1607,7 @@ async function reloadCurrentTravel(isManual=false){
         appState = t.data || appState;
         currentTimestamp = t.updatedAt || currentTimestamp;
         cloudPhotos = allPhotosCache;
-        if(!appState.statuses)     appState.statuses={};
-        if(!appState.advanceCosts) appState.advanceCosts=[];
-        if(!appState.paygCosts)    appState.paygCosts=[];
-        if(!appState.itinerary)    appState.itinerary=[];
-        if(!appState.travelDays)   appState.travelDays=1;
+        normalizeAppState();
         sortItinerary(); clearUnsaved(); renderAll();
         if(isManual) showToast('最新データに更新しました');
     } catch(e){
@@ -1641,10 +1648,7 @@ async function saveToCloud(force=false){
         }
         appState = (data.travel && data.travel.data) || appState;
         currentTimestamp = (data.travel && data.travel.updatedAt) || data.timestamp || currentTimestamp;
-        if(!appState.statuses)     appState.statuses={};
-        if(!appState.advanceCosts) appState.advanceCosts=[];
-        if(!appState.paygCosts)    appState.paygCosts=[];
-        if(!appState.itinerary)    appState.itinerary=[];
+        normalizeAppState();
         clearUnsaved(); renderAll();
         for(let d=1;d<=appState.travelDays;d++) refreshDayMap(d);
         showToast('スプレッドシートへ保存しました！');
@@ -1664,10 +1668,7 @@ async function autoRefreshCheck(){
             allPhotosCache = data.photos || allPhotosCache;
             appState=t.data; currentTimestamp=t.updatedAt;
             cloudPhotos=allPhotosCache;
-            if(!appState.statuses)     appState.statuses={};
-            if(!appState.advanceCosts) appState.advanceCosts=[];
-            if(!appState.paygCosts)    appState.paygCosts=[];
-            if(!appState.itinerary)    appState.itinerary=[];
+            normalizeAppState();
             sortItinerary(); renderAll();
             showToast('他の端末からの更新を反映しました✨');
         }
@@ -1726,6 +1727,7 @@ function renderCalendar(){
 }
 
 function buildMapHtml(d,dayItems){
+    dayItems = dayItems.map(i => ({ ...i, title: i.title || '' })); // タイトル欠損データでも落ちないようにする
     let routeNodes=dayItems.filter(i=>!i.title.includes('移動中')&&!i.title.includes('チェックイン')&&!i.title.includes('成田空港')&&appState.statuses[i.id]!=='1'&&appState.statuses[i.id]!=='2');
     const targetItems=dayItems.filter(i=>!i.title.includes('移動中')&&!i.title.includes('チェックイン')&&!i.title.includes('成田空港'));
     const isDayComplete=targetItems.length>0&&targetItems.every(i=>appState.statuses[i.id]==='1'||appState.statuses[i.id]==='2');
