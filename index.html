@@ -458,7 +458,7 @@
             </div>
         </div>
 
-        <button onclick="saveProfile()" class="btn-journey w-full py-3 rounded-xl mt-5">保存する</button>
+        <button id="profile-save-btn" onclick="saveProfile()" class="btn-journey w-full py-3 rounded-xl mt-5">保存する</button>
     </div>
 </div>
 <div id="app-content" class="relative z-10">
@@ -918,6 +918,26 @@ function previewProfileAvatar(event){
     document.getElementById('profile-modal-avatar').innerHTML = `<img src="${profileAvatarPreviewUrl}" class="w-20 h-20 rounded-xl object-cover">`;
 }
 
+// スマホのカメラ写真（数MB〜十数MB、HEIC形式のことも）でも問題なくアップロードできるよう、
+// アップロード前にブラウザ側でアイコン用サイズまで縮小・軽量化する
+async function resizeImageForUpload_(file, maxDim=512, quality=0.85){
+    try{
+        const bitmap = await createImageBitmap(file);
+        const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
+        const w = Math.max(1, Math.round(bitmap.width * scale));
+        const h = Math.max(1, Math.round(bitmap.height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(bitmap, 0, 0, w, h);
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+        return blob || file;
+    } catch(e){
+        console.warn('画像の縮小に失敗したため、元のファイルをそのまま使用します', e.message);
+        return file;
+    }
+}
+
 async function saveProfile(){
     if(!window._currentUser){ showToast('ログイン情報が確認できません', true); return; }
     const uid = window._currentUser.uid;
@@ -926,16 +946,19 @@ async function saveProfile(){
     const birthdate = document.getElementById('profile-birthdate').value;
     const region = document.getElementById('profile-region').value;
     const fileInput = document.getElementById('profile-avatar-input');
+    const saveBtn = document.getElementById('profile-save-btn');
 
+    if(saveBtn){ saveBtn.disabled = true; saveBtn.textContent = '保存中...'; }
     try{
         let customPhotoURL = myProfile.customPhotoURL || '';
         const file = fileInput.files[0];
         if(file){
             if(!file.type.startsWith('image/')){ showToast('画像ファイルを選択してください', true); return; }
-            if(file.size > 3*1024*1024){ showToast('アイコン画像は3MBまでです', true); return; }
-            const path = `avatars/${uid}/${Date.now()}-${file.name}`;
+            const resized = await resizeImageForUpload_(file, 512, 0.85);
+            if(resized.size > 3*1024*1024){ showToast('画像の圧縮後もサイズが大きすぎます。別の画像でお試しください', true); return; }
+            const path = `avatars/${uid}/${Date.now()}.jpg`;
             const storageRef = window._storageFns.ref(window._storage, path);
-            await window._storageFns.uploadBytes(storageRef, file);
+            await window._storageFns.uploadBytes(storageRef, resized, { contentType: 'image/jpeg' });
             customPhotoURL = await window._storageFns.getDownloadURL(storageRef);
         }
         await window._fs.setDoc(window._fs.doc(window._db,'users',uid), {
@@ -949,6 +972,8 @@ async function saveProfile(){
     } catch(e){
         console.error(e);
         showToast('保存に失敗しました', true);
+    } finally {
+        if(saveBtn){ saveBtn.disabled = false; saveBtn.textContent = '保存する'; }
     }
 }
 
@@ -1029,7 +1054,9 @@ async function updateVisitedCountText(){
         const total = list.length || 1894;
         if(visited.size > 0){
             const pct = (visited.size/total*100).toFixed(1);
-            el.innerHTML = `<span class="text-xs">全${total}市区町村のうち${visited.size}市区町村を訪れました</span><br><span class="text-lg font-black" style="color:var(--dusk-bottom)">全国訪問${pct}％達成 🎉</span>`;
+            const abovePct = await computePercentileAbove_('visitedMunicipalityCount', visited.size);
+            el.innerHTML = `<span class="text-xs">全${total}市区町村のうち${visited.size}市区町村を訪れました</span><br><span class="text-lg font-black" style="color:var(--dusk-bottom)">全国訪問${pct}％達成 🎉</span>` +
+                (abovePct!=null ? `<br><span class="text-xs">全ユーザーの${abovePct}％のメンバーより訪問数が多いです</span>` : '');
         } else {
             el.innerHTML = '<span class="text-xs">まだ訪れた場所がありません</span>';
         }
@@ -1044,7 +1071,9 @@ async function updateFacilityCountText(){
     try{
         const facilities = collectVisitedFacilities_();
         if(facilities.size > 0){
-            el.innerHTML = `<span class="text-lg font-black" style="color:var(--dusk-bottom)">訪問施設 ${facilities.size}件 🏯</span>`;
+            const abovePct = await computePercentileAbove_('visitedFacilityCount', facilities.size);
+            el.innerHTML = `<span class="text-lg font-black" style="color:var(--dusk-bottom)">訪問施設 ${facilities.size}件 🏯</span>` +
+                (abovePct!=null ? `<br><span class="text-xs">全ユーザーの${abovePct}％のメンバーより訪問数が多いです</span>` : '');
         } else {
             el.innerHTML = '<span class="text-xs">まだ訪問した観光施設がありません</span>';
         }
