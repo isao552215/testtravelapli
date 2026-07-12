@@ -484,6 +484,7 @@
                     <i class="fa-solid fa-right-from-bracket"></i> ログアウト
                 </button>
             </div>
+            <div id="current-travel-share-info" class="text-center text-[11px] text-white/85 mt-1.5"></div>
         </header>
     </div>
 
@@ -1094,10 +1095,14 @@ function renderTravelList(){
         const badge = mine
             ? '<span class="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">自分の旅行</span>'
             : `<span class="text-[10px] bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full font-bold">共有 (${escapeHtml(t.owner)})</span>`;
+        const sharedInfo = mine && (t.sharedWith||[]).length
+            ? `<div class="text-[10px] text-gray-400 mt-1"><i class="fa-solid fa-users"></i> 共有中：${t.sharedWith.map(e=>escapeHtml(e)).join('、')}</div>`
+            : '';
         return `<div class="border border-gray-200 rounded-xl flex items-center hover:bg-gray-50 transition-colors">
             <button onclick="selectTravel('${t.id}')" class="flex-1 text-left p-3">
                 <div class="font-bold text-gray-800">${escapeHtml(t.name)}</div>
                 <div class="mt-1">${badge}</div>
+                ${sharedInfo}
             </button>
             ${mine ? `<button onclick="openShareModal('${t.id}')" class="text-gray-400 hover:text-blue-600 px-3" title="共有設定"><i class="fa-solid fa-user-plus"></i></button>` : ''}
             ${mine ? `<button onclick="confirmDeleteTravel('${t.id}')" class="text-gray-400 hover:text-red-500 px-3" title="削除"><i class="fa-solid fa-trash"></i></button>` : ''}
@@ -1249,12 +1254,26 @@ function selectTravel(travelId){
     document.getElementById('menu-screen').style.display = 'none';
     const titleEl = document.getElementById('current-travel-name');
     if(titleEl) titleEl.textContent = t.name;
+    renderCurrentTravelShareInfo();
     sortItinerary();
     showApp();
     renderAll();
     clearUnsaved();
     subscribeToCurrentTravel();
     loadPhotosForCurrentTravel();
+}
+
+function renderCurrentTravelShareInfo(){
+    const el = document.getElementById('current-travel-share-info');
+    if(!el || !currentTravelMeta) return;
+    const myUid = window._currentUser ? window._currentUser.uid : '';
+    const mine = currentTravelMeta.ownerUid === myUid;
+    if(mine){
+        const list = currentTravelMeta.sharedWith || [];
+        el.textContent = list.length ? `共有中：${list.join('、')}` : '';
+    } else {
+        el.textContent = currentTravelMeta.owner ? `共有元：${currentTravelMeta.owner}` : '';
+    }
 }
 
 // ===================================================
