@@ -267,7 +267,25 @@
             <div class="flex-1">
                 <div class="font-bold text-base" style="color:var(--ink)">訪れた場所を見る</div>
                 <div class="text-xs text-gray-500 mt-0.5">完了にした旅の記録が地図になります</div>
-                <div id="visited-count-text" class="text-xs font-bold mt-1" style="color:var(--turquoise)">読み込み中...</div>
+                <div id="visited-count-text" class="mt-1" style="color:var(--turquoise)">読み込み中...</div>
+            </div>
+            <i class="fa-solid fa-chevron-right text-gray-300"></i>
+        </button>
+
+        <!-- ①-2 訪れた観光施設 -->
+        <button onclick="openVisitedFacilities()" class="w-full rounded-2xl p-4 mb-2 flex items-center gap-3 text-left transition-transform hover:-translate-y-0.5" style="background:linear-gradient(135deg,#fff3e0,#eafaf8); border:1px solid #f5e3c8;">
+            <svg width="56" height="56" viewBox="0 0 64 64" class="shrink-0">
+                <circle cx="32" cy="32" r="26" fill="#FF7B54" opacity="0.15"/>
+                <path d="M18 46 L18 30 L32 18 L46 30 L46 46 Z" fill="none" stroke="#FF7B54" stroke-width="2" stroke-linejoin="round"/>
+                <rect x="27" y="36" width="10" height="10" fill="none" stroke="#FF7B54" stroke-width="1.5"/>
+                <path d="M14 46 L50 46" stroke="#FFB74D" stroke-width="2"/>
+                <circle cx="46" cy="20" r="3.5" fill="#1BA9A0"/>
+                <circle cx="20" cy="22" r="2.5" fill="#1BA9A0"/>
+            </svg>
+            <div class="flex-1">
+                <div class="font-bold text-base" style="color:var(--ink)">訪れた観光施設</div>
+                <div class="text-xs text-gray-500 mt-0.5">完了にした予定から観光施設の訪問数が分かります</div>
+                <div id="facility-count-text" class="mt-1" style="color:var(--turquoise)">読み込み中...</div>
             </div>
             <i class="fa-solid fa-chevron-right text-gray-300"></i>
         </button>
@@ -311,6 +329,22 @@
         <div id="facility-history-list" class="hidden text-xs bg-white/85 backdrop-blur-sm rounded-lg p-3 space-y-1 max-h-64 overflow-y-auto"></div>
 
         <p class="mt-4 text-[10px] text-gray-400">地図データ: 国土数値情報（国土交通省）/ 加工: smartnews-smri/japan-topography</p>
+    </div>
+</div>
+
+<!-- ========== 訪れた観光施設（全画面） ========== -->
+<div id="visited-facilities-modal" class="hidden fixed inset-0 z-[50010] bg-gray-50 flex flex-col overflow-y-auto">
+    <div id="visited-facilities-bg-slideshow" class="fixed inset-0 z-0"></div>
+    <div class="sticky top-0 flex items-center justify-between px-4 py-3 bg-white/90 backdrop-blur-sm border-b border-gray-100 z-10">
+        <div>
+            <h3 class="text-base font-bold"><i class="fa-solid fa-torii-gate text-orange-500"></i> 訪れた観光施設</h3>
+            <p class="text-xs text-gray-400">完了にした予定のタイトルをもとに集計しています</p>
+        </div>
+        <button onclick="closeVisitedFacilities()" class="text-gray-400 hover:text-gray-600 bg-gray-100 rounded-full w-9 h-9 flex items-center justify-center shrink-0"><i class="fa-solid fa-xmark text-lg"></i></button>
+    </div>
+    <div class="p-4 max-w-2xl w-full mx-auto flex-1">
+        <div id="facility-modal-stats-text" class="text-xs bg-white/85 backdrop-blur-sm rounded-lg p-3 mb-3 leading-relaxed text-gray-600">集計中...</div>
+        <div id="facility-modal-list" class="text-xs bg-white/85 backdrop-blur-sm rounded-lg p-3 space-y-1"></div>
     </div>
 </div>
 
@@ -977,6 +1011,7 @@ async function loadTravelList(){
         });
         renderTravelList();
         updateVisitedCountText();
+        updateFacilityCountText();
     } catch(e){
         console.warn('travel list load failed', e.message);
         container.innerHTML = '<p class="text-center text-red-500 text-sm py-6">一覧の読み込みに失敗しました。<br>時間をおいて「更新」をお試しください。</p>';
@@ -994,9 +1029,24 @@ async function updateVisitedCountText(){
         const total = list.length || 1894;
         if(visited.size > 0){
             const pct = (visited.size/total*100).toFixed(1);
-            el.innerHTML = `全${total}市区町村のうち${visited.size}市区町村を訪れました<br><span class="text-[11px] opacity-80">全国訪問${pct}％達成</span>`;
+            el.innerHTML = `<span class="text-xs">全${total}市区町村のうち${visited.size}市区町村を訪れました</span><br><span class="text-lg font-black" style="color:var(--dusk-bottom)">全国訪問${pct}％達成 🎉</span>`;
         } else {
-            el.textContent = 'まだ訪れた場所がありません';
+            el.innerHTML = '<span class="text-xs">まだ訪れた場所がありません</span>';
+        }
+    } catch(e){
+        el.textContent = '';
+    }
+}
+
+async function updateFacilityCountText(){
+    const el = document.getElementById('facility-count-text');
+    if(!el) return;
+    try{
+        const facilities = collectVisitedFacilities_();
+        if(facilities.size > 0){
+            el.innerHTML = `<span class="text-lg font-black" style="color:var(--dusk-bottom)">訪問施設 ${facilities.size}件 🏯</span>`;
+        } else {
+            el.innerHTML = '<span class="text-xs">まだ訪問した観光施設がありません</span>';
         }
     } catch(e){
         el.textContent = '';
@@ -1537,9 +1587,9 @@ function hideDesignSetBackground(){
 }
 
 let visitedMapSlideshowTimer = null;
-function startVisitedMapSlideshow(){
+function startVisitedMapSlideshow(targetId='visited-map-bg-slideshow'){
     stopVisitedMapSlideshow();
-    const el = document.getElementById('visited-map-bg-slideshow');
+    const el = document.getElementById(targetId);
     if(!el) return;
     const set = DESIGN_SETS[currentDesignSetId];
     if(!set || !set.prefImages || !set.prefImages.length){ el.style.backgroundImage=''; return; }
@@ -1562,14 +1612,48 @@ function startVisitedMapSlideshow(){
     idx = 1;
     visitedMapSlideshowTimer = setInterval(show, 6000);
 }
-function stopVisitedMapSlideshow(){
+function stopVisitedMapSlideshow(targetId='visited-map-bg-slideshow'){
     if(visitedMapSlideshowTimer){ clearInterval(visitedMapSlideshowTimer); visitedMapSlideshowTimer = null; }
-    const el = document.getElementById('visited-map-bg-slideshow');
+    const el = document.getElementById(targetId);
     if(el){ el.style.backgroundImage = ''; }
 }
 function closeVisitedMap(){
     document.getElementById('visited-map-modal').classList.add('hidden');
-    stopVisitedMapSlideshow();
+    stopVisitedMapSlideshow('visited-map-bg-slideshow');
+}
+
+// ===================================================
+// 訪れた観光施設（旅行選択画面から独立して開ける全画面）
+// ===================================================
+function closeVisitedFacilities(){
+    document.getElementById('visited-facilities-modal').classList.add('hidden');
+    stopVisitedMapSlideshow('visited-facilities-bg-slideshow');
+}
+
+async function openVisitedFacilities(){
+    document.getElementById('visited-facilities-modal').classList.remove('hidden');
+    startVisitedMapSlideshow('visited-facilities-bg-slideshow');
+    const statsEl = document.getElementById('facility-modal-stats-text');
+    const listEl = document.getElementById('facility-modal-list');
+    statsEl.textContent = '集計中...';
+    listEl.innerHTML = '';
+    try{
+        const myName = profileDisplayName_() || (window._currentUser && window._currentUser.displayName) || 'あなた';
+        const facilities = collectVisitedFacilities_();
+        const municipalities = collectVisitedMunicipalities_();
+        updateAndSaveMyVisitStats_(municipalities.size, facilities.size);
+
+        const abovePct = await computePercentileAbove_('visitedFacilityCount', facilities.size);
+        statsEl.innerHTML = `『${escapeHtml(myName)}』さん、あなたの観光施設訪問数は${facilities.size}件です。` +
+            (abovePct!=null ? `<br>この訪問数は、全ユーザーの${abovePct}％を上回っています。` : '');
+
+        listEl.innerHTML = facilities.size
+            ? Array.from(facilities).sort((a,b)=>a.localeCompare(b,'ja')).map(t=>`<div class="border-b border-gray-100 last:border-0 py-1.5"><i class="fa-solid fa-torii-gate text-orange-400 mr-1.5"></i>${escapeHtml(t)}</div>`).join('')
+            : '<p class="text-gray-400">まだ訪問した観光施設がありません。予定を完了にすると、ここに反映されます。</p>';
+    } catch(e){
+        console.warn('facilities view failed', e.message);
+        statsEl.textContent = '';
+    }
 }
 
 async function openVisitedMap(){
