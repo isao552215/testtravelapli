@@ -343,6 +343,20 @@
     </div>
 </div>
 
+<!-- ========== 自己採点モーダル ========== -->
+<div id="score-modal" class="modal-overlay hidden z-[50010]" onclick="closeModalsOnBgClick(event,'score-modal')">
+    <div class="modal-content p-6 relative">
+        <button onclick="document.getElementById('score-modal').classList.add('hidden')" class="absolute top-3 right-3 text-gray-400 hover:text-gray-600 bg-gray-100 rounded-full w-8 h-8 flex items-center justify-center"><i class="fa-solid fa-xmark text-lg"></i></button>
+        <h3 id="score-modal-title" class="text-base font-bold mb-5"><i class="fa-solid fa-star text-yellow-400"></i> 採点</h3>
+        <div class="flex items-center gap-3">
+            <input type="range" id="score-slider" min="0" max="100" value="0" class="flex-1 accent-teal-600" oninput="syncScoreInputs('slider')">
+            <input type="number" id="score-number" min="0" max="100" value="0" class="w-16 p-2 border border-gray-300 rounded text-center font-bold" oninput="syncScoreInputs('number')">
+            <span class="text-xs text-gray-400 shrink-0">/100点</span>
+        </div>
+        <button onclick="applyScore()" class="btn-journey w-full py-2.5 rounded-lg mt-6">設定する</button>
+    </div>
+</div>
+
 <!-- ========== 新規作成ウィザード（3ステップ） ========== -->
 <div id="new-travel-modal" class="modal-overlay hidden z-[50010]" onclick="closeModalsOnBgClick(event,'new-travel-modal')">
     <div class="modal-content p-6 relative">
@@ -468,15 +482,20 @@
                     <i class="fa-solid fa-cloud-arrow-up sync-spinner"></i> 通信中
                 </div>
             </div>
-            <div class="flex items-center justify-center gap-2 mt-2">
-                <button onclick="backToMenu()" class="bg-white/20 hover:bg-white/30 transition-colors px-2.5 py-1 rounded text-xs font-bold backdrop-blur-sm shadow flex items-center gap-1">
-                    <i class="fa-solid fa-list"></i> 一覧へ
-                </button>
-                <button onclick="reloadCurrentTravel(true)" class="bg-white/20 hover:bg-white/30 transition-colors px-2.5 py-1 rounded text-xs font-bold backdrop-blur-sm shadow flex items-center gap-1">
-                    <i class="fa-solid fa-arrows-rotate"></i> リロード
-                </button>
-                <button onclick="doLogout()" class="bg-white/20 hover:bg-white/30 transition-colors px-2.5 py-1 rounded text-xs font-bold backdrop-blur-sm shadow flex items-center gap-1">
-                    <i class="fa-solid fa-right-from-bracket"></i> ログアウト
+            <div class="flex items-center justify-between gap-2 mt-2 flex-wrap">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <button onclick="backToMenu()" class="bg-white/20 hover:bg-white/30 transition-colors px-2.5 py-1 rounded text-xs font-bold backdrop-blur-sm shadow flex items-center gap-1">
+                        <i class="fa-solid fa-list"></i> 一覧へ
+                    </button>
+                    <button onclick="reloadCurrentTravel(true)" class="bg-white/20 hover:bg-white/30 transition-colors px-2.5 py-1 rounded text-xs font-bold backdrop-blur-sm shadow flex items-center gap-1">
+                        <i class="fa-solid fa-arrows-rotate"></i> リロード
+                    </button>
+                    <button onclick="doLogout()" class="bg-white/20 hover:bg-white/30 transition-colors px-2.5 py-1 rounded text-xs font-bold backdrop-blur-sm shadow flex items-center gap-1">
+                        <i class="fa-solid fa-right-from-bracket"></i> ログアウト
+                    </button>
+                </div>
+                <button id="overall-score-badge" onclick="openScoreModal('overall')" class="bg-white/20 hover:bg-white/30 transition-colors px-2.5 py-1 rounded text-xs font-bold backdrop-blur-sm shadow flex items-center gap-1">
+                    <i class="fa-solid fa-star text-yellow-300"></i> <span id="overall-score-text">未採点</span>
                 </button>
             </div>
             <div id="current-travel-share-info" class="text-center text-[11px] text-white/85 mt-1.5"></div>
@@ -2250,7 +2269,64 @@ async function saveToCloud(){
 // ===================================================
 // 描画
 // ===================================================
-function renderAll(){ renderCalendar(); renderTimelineAndWBS(); renderAllCosts(); renderPhotos(); }
+function renderAll(){ renderCalendar(); renderTimelineAndWBS(); renderAllCosts(); renderPhotos(); renderOverallScoreBadge(); }
+
+// ===================================================
+// 自己採点（100点満点・オーナーのみ設定可）
+// ===================================================
+function isTravelOwner_(){
+    return !!(currentTravelMeta && window._currentUser && currentTravelMeta.ownerUid === window._currentUser.uid);
+}
+
+let scoreModalTarget = null; // 'overall' または itemId
+function openScoreModal(target){
+    if(!isTravelOwner_()){ showToast('採点はこの旅行のオーナーのみ設定できます', true); return; }
+    scoreModalTarget = target;
+    let current = 0, label = '旅行全体の採点';
+    if(target === 'overall'){
+        current = (appState.overallScore!=null && appState.overallScore!=='') ? appState.overallScore : 0;
+    } else {
+        const item = appState.itinerary.find(i=>i.id===target);
+        current = (item && item.score!=null && item.score!=='') ? item.score : 0;
+        label = `「${item ? item.title : ''}」の採点`;
+    }
+    document.getElementById('score-modal-title').innerHTML = `<i class="fa-solid fa-star text-yellow-400"></i> ${escapeHtml(label)}`;
+    document.getElementById('score-slider').value = current;
+    document.getElementById('score-number').value = current;
+    document.getElementById('score-modal').classList.remove('hidden');
+}
+
+function syncScoreInputs(from){
+    const slider = document.getElementById('score-slider');
+    const number = document.getElementById('score-number');
+    if(from === 'slider'){
+        number.value = slider.value;
+    } else {
+        let v = Math.max(0, Math.min(100, parseInt(number.value) || 0));
+        number.value = v; slider.value = v;
+    }
+}
+
+function applyScore(){
+    const v = Math.max(0, Math.min(100, parseInt(document.getElementById('score-number').value) || 0));
+    if(scoreModalTarget === 'overall'){
+        appState.overallScore = v;
+        renderOverallScoreBadge();
+    } else {
+        const item = appState.itinerary.find(i=>i.id===scoreModalTarget);
+        if(item){ item.score = v; }
+        renderTimelineAndWBS();
+    }
+    document.getElementById('score-modal').classList.add('hidden');
+    markUnsaved();
+    showToast('採点を設定しました（保存ボタンで確定します）');
+}
+
+function renderOverallScoreBadge(){
+    const el = document.getElementById('overall-score-text');
+    if(!el) return;
+    el.textContent = (appState.overallScore!=null && appState.overallScore!=='') ? `${appState.overallScore}点` : '未採点';
+}
 
 function toggleRainyMode(){
     const s=document.getElementById('schedule-section');
@@ -2396,7 +2472,7 @@ function renderTimelineAndWBS(){
             if(item.youtube) links+=`<a href="${item.youtube}" target="_blank" class="bg-red-600 text-white text-xs px-2.5 py-1.5 rounded"><i class="fa-brands fa-youtube"></i> 動画</a> `;
             if(item.map)     links+=`<a href="${item.map}" target="_blank" class="bg-blue-600 text-white text-xs px-2.5 py-1.5 rounded"><i class="fa-solid fa-link"></i> Map</a> `;
             const alt=rainyAlternatives[item.id]?`<div class="rainy-alt bg-blue-50/80 border-l-4 border-blue-400 p-2 text-xs text-blue-800 rounded-r shadow-inner"><i class="fa-solid fa-umbrella text-blue-500 mr-1"></i> ${rainyAlternatives[item.id]}</div>`:'';
-            card.innerHTML=`<div class="absolute -left-[24px] top-5 w-3.5 h-3.5 rounded-full ${style.dot} border-2 border-white shadow"></div><div class="flex flex-wrap justify-between items-start gap-2"><div class="w-full sm:w-auto flex-1"><span class="font-mono ${style.lightBg} ${style.text} px-1.5 py-0.5 rounded font-bold mr-1 text-sm">${item.time}</span><h3 class="font-bold text-base inline text-gray-900">${item.title}</h3></div><div class="flex items-center gap-2 mt-2 sm:mt-0 w-full sm:w-auto justify-end"><div class="flex gap-2 bg-gray-50 px-2 py-1.5 rounded-lg border border-gray-200 shrink-0 shadow-sm"><label class="inline-flex items-center gap-1 cursor-pointer text-gray-500 text-sm"><input type="radio" name="status-${item.id}" value="0" ${status==='0'?'checked':''} onchange="updateStatus(${item.id},this.value)">未</label><label class="inline-flex items-center gap-1 cursor-pointer text-emerald-600 font-medium text-sm"><input type="radio" name="status-${item.id}" value="1" ${status==='1'?'checked':''} onchange="updateStatus(${item.id},this.value)">完</label><label class="inline-flex items-center gap-1 cursor-pointer text-amber-600 font-medium text-sm"><input type="radio" name="status-${item.id}" value="2" ${status==='2'?'checked':''} onchange="updateStatus(${item.id},this.value)">スキ</label></div><button onclick="openEditModal(${item.id})" class="text-blue-500 font-bold ml-1 text-sm bg-blue-50 p-2 rounded hover:bg-blue-100"><i class="fa-solid fa-pen"></i></button><button onclick="handleDeleteItem(${item.id})" class="text-red-500 font-bold ml-1 text-sm bg-red-50 p-2 rounded hover:bg-red-100"><i class="fa-solid fa-trash-can"></i></button></div></div>${alt}${links?`<div class="mt-3 flex flex-wrap gap-2">${links}</div>`:''}<div class="mt-3"><textarea oninput="updateComment(${item.id},this.value)" placeholder="メモ・コメントを入力..." class="w-full text-sm p-2.5 border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:border-blue-300 focus:outline-none transition-colors resize-y min-h-[60px] text-gray-700">${item.comment||''}</textarea></div><div class="mt-3 border-t border-dashed border-gray-200 pt-3"><div id="photo-grid-${item.id}" class="grid grid-cols-4 sm:grid-cols-6 gap-2 mb-2"></div><div class="flex items-center gap-3"><label class="cursor-pointer bg-teal-50 text-teal-700 border border-teal-200 text-xs px-3 py-1.5 rounded hover:opacity-80 font-bold"><i class="fa-solid fa-camera"></i> 写真を追加<input type="file" accept="image/*" class="hidden" onchange="triggerUpload(event,${item.id})"></label><span id="upload-status-${item.id}" class="text-xs text-gray-400"></span></div></div>`;
+            card.innerHTML=`<div class="absolute -left-[24px] top-5 w-3.5 h-3.5 rounded-full ${style.dot} border-2 border-white shadow"></div><div class="flex flex-wrap justify-between items-start gap-2"><div class="w-full sm:w-auto flex-1"><span class="font-mono ${style.lightBg} ${style.text} px-1.5 py-0.5 rounded font-bold mr-1 text-sm">${item.time}</span><h3 class="font-bold text-base inline text-gray-900">${item.title}</h3><button onclick="openScoreModal(${item.id})" class="ml-2 inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-yellow-50 text-yellow-700 border border-yellow-200 align-middle"><i class="fa-solid fa-star"></i> ${item.score!=null && item.score!=='' ? item.score+'点' : '未採点'}</button></div><div class="flex items-center gap-2 mt-2 sm:mt-0 w-full sm:w-auto justify-end"><div class="flex gap-2 bg-gray-50 px-2 py-1.5 rounded-lg border border-gray-200 shrink-0 shadow-sm"><label class="inline-flex items-center gap-1 cursor-pointer text-gray-500 text-sm"><input type="radio" name="status-${item.id}" value="0" ${status==='0'?'checked':''} onchange="updateStatus(${item.id},this.value)">未</label><label class="inline-flex items-center gap-1 cursor-pointer text-emerald-600 font-medium text-sm"><input type="radio" name="status-${item.id}" value="1" ${status==='1'?'checked':''} onchange="updateStatus(${item.id},this.value)">完</label><label class="inline-flex items-center gap-1 cursor-pointer text-amber-600 font-medium text-sm"><input type="radio" name="status-${item.id}" value="2" ${status==='2'?'checked':''} onchange="updateStatus(${item.id},this.value)">スキ</label></div><button onclick="openEditModal(${item.id})" class="text-blue-500 font-bold ml-1 text-sm bg-blue-50 p-2 rounded hover:bg-blue-100"><i class="fa-solid fa-pen"></i></button><button onclick="handleDeleteItem(${item.id})" class="text-red-500 font-bold ml-1 text-sm bg-red-50 p-2 rounded hover:bg-red-100"><i class="fa-solid fa-trash-can"></i></button></div></div>${alt}${links?`<div class="mt-3 flex flex-wrap gap-2">${links}</div>`:''}<div class="mt-3"><textarea oninput="updateComment(${item.id},this.value)" placeholder="メモ・コメントを入力..." class="w-full text-sm p-2.5 border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:border-blue-300 focus:outline-none transition-colors resize-y min-h-[60px] text-gray-700">${item.comment||''}</textarea></div><div class="mt-3 border-t border-dashed border-gray-200 pt-3"><div id="photo-grid-${item.id}" class="grid grid-cols-4 sm:grid-cols-6 gap-2 mb-2"></div><div class="flex items-center gap-3"><label class="cursor-pointer bg-teal-50 text-teal-700 border border-teal-200 text-xs px-3 py-1.5 rounded hover:opacity-80 font-bold"><i class="fa-solid fa-camera"></i> 写真を追加<input type="file" accept="image/*" class="hidden" onchange="triggerUpload(event,${item.id})"></label><span id="upload-status-${item.id}" class="text-xs text-gray-400"></span></div></div>`;
             timeline.appendChild(card);
 
             if(idx<dayItems.length-1){
