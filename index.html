@@ -321,13 +321,6 @@
         <div id="visited-map-svg-wrap" class="w-full overflow-hidden rounded-lg border border-gray-200 bg-blue-50/90 backdrop-blur-sm"></div>
         <div id="visited-map-list" class="mt-3 text-xs text-gray-500 bg-white/80 backdrop-blur-sm rounded-lg p-2"></div>
 
-        <h4 class="font-bold text-sm mt-6 mb-1" style="color:var(--ink)"><i class="fa-solid fa-torii-gate text-emerald-600"></i> 訪れた観光施設数</h4>
-        <div id="facility-stats-text" class="text-xs bg-white/85 backdrop-blur-sm rounded-lg p-3 mb-3 leading-relaxed text-gray-600"></div>
-        <button onclick="toggleFacilityHistory()" class="text-xs font-bold hover:underline mb-2" style="color:var(--turquoise)">
-            <i class="fa-solid fa-chevron-down"></i> 訪問した観光施設の履歴を見る
-        </button>
-        <div id="facility-history-list" class="hidden text-xs bg-white/85 backdrop-blur-sm rounded-lg p-3 space-y-1 max-h-64 overflow-y-auto"></div>
-
         <p class="mt-4 text-[10px] text-gray-400">地図データ: 国土数値情報（国土交通省）/ 加工: smartnews-smri/japan-topography</p>
     </div>
 </div>
@@ -344,6 +337,8 @@
     </div>
     <div class="p-4 max-w-2xl w-full mx-auto flex-1">
         <div id="facility-modal-stats-text" class="text-xs bg-white/85 backdrop-blur-sm rounded-lg p-3 mb-3 leading-relaxed text-gray-600">集計中...</div>
+        <div id="facility-map-status" class="text-center text-gray-400 text-sm py-6"><i class="fa-solid fa-spinner sync-spinner"></i> 集計中...</div>
+        <div id="facility-map-svg-wrap" class="w-full overflow-hidden rounded-lg border border-gray-200 bg-blue-50/90 backdrop-blur-sm mb-3"></div>
         <div id="facility-modal-list" class="text-xs bg-white/85 backdrop-blur-sm rounded-lg p-3 space-y-1"></div>
     </div>
 </div>
@@ -506,6 +501,26 @@
         <div id="calendar-grid" class="grid grid-cols-7 gap-1 text-center text-xs"></div>
     </section>
 
+    <!-- AIで調べてみる：外部リンクのみ・API連携なしのため追加費用は発生しません -->
+    <section class="bg-white p-3 rounded-xl shadow-sm mb-4">
+        <div class="text-sm font-bold text-gray-700 mb-2 flex items-center gap-1"><i class="fa-solid fa-magnifying-glass text-purple-500"></i> AIで調べてみる</div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <a href="https://chatgpt.com/" target="_blank" rel="noopener" class="flex flex-col items-center gap-1 p-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-xs font-bold text-gray-600">
+                <i class="fa-solid fa-comment-dots text-lg text-emerald-500"></i> ChatGPT
+            </a>
+            <a href="https://gemini.google.com/" target="_blank" rel="noopener" class="flex flex-col items-center gap-1 p-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-xs font-bold text-gray-600">
+                <i class="fa-solid fa-star text-lg text-blue-500"></i> Gemini
+            </a>
+            <a href="https://copilot.microsoft.com/" target="_blank" rel="noopener" class="flex flex-col items-center gap-1 p-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-xs font-bold text-gray-600">
+                <i class="fa-solid fa-robot text-lg text-sky-500"></i> Copilot
+            </a>
+            <a href="https://claude.ai/" target="_blank" rel="noopener" class="flex flex-col items-center gap-1 p-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-xs font-bold text-gray-600">
+                <i class="fa-solid fa-wand-magic-sparkles text-lg text-orange-500"></i> Claude
+            </a>
+        </div>
+        <p class="text-[10px] text-gray-400 mt-2">お使いのAIアプリで、行き先の観光情報やモデルコースを調べられます（外部サイトが開きます）</p>
+    </section>
+
     <div class="space-y-4">
 
         <!-- 費用シミュレーター -->
@@ -536,42 +551,43 @@
             </div>
         </section>
 
-        <!-- AI旅程提案パネル -->
+        <!-- AIで調べてみる -->
         <section class="bg-white rounded-xl shadow-sm overflow-hidden">
             <button onclick="toggleAiPanel()" class="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors">
                 <span class="font-bold text-gray-800 flex items-center gap-2">
-                    <i class="fa-solid fa-wand-magic-sparkles text-purple-500"></i> AI旅程提案
-                    <span class="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-bold">Claude</span>
+                    <i class="fa-solid fa-magnifying-glass text-purple-500"></i> AIで調べてみる
                 </span>
                 <i id="ai-panel-chevron" class="fa-solid fa-chevron-down text-gray-400 transition-transform"></i>
             </button>
             <div id="ai-panel" class="border-t border-gray-100">
-                <div class="p-4 space-y-3">
-                    <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">目的地エリア</label>
-                            <input type="text" id="ai-dest" placeholder="例：壱岐島" class="w-full p-2 border border-gray-300 rounded text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">日数</label>
-                            <select id="ai-days" class="w-full p-2 border border-gray-300 rounded text-sm">
-                                <option value="1">1日</option>
-                                <option value="2">2日</option>
-                                <option value="3" selected>3日</option>
-                                <option value="4">4日</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">旅のテーマ・こだわり</label>
-                        <input type="text" id="ai-theme" placeholder="例：神社巡り・グルメ・海水浴" class="w-full p-2 border border-gray-300 rounded text-sm">
-                    </div>
-                    <button onclick="suggestItinerary()" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold py-2.5 rounded-lg text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
-                        <i class="fa-solid fa-wand-magic-sparkles"></i> AIで旅程を提案してもらう
-                    </button>
-                    <div id="ai-status" class="text-xs text-center text-gray-500 italic hidden"></div>
-                    <div id="ai-result" class="hidden bg-purple-50 border border-purple-200 rounded-lg p-3 text-sm space-y-2 max-h-[60vh] overflow-y-auto"></div>
-                    <p class="text-xs text-gray-400 text-center">※ デモ版：実際のAPI接続はバックエンド設定後に有効になります</p>
+                <div class="p-4 space-y-2">
+                    <p class="text-xs text-gray-500 mb-2">普段お使いのAIアプリで、旅程の相談やスポット検索ができます。</p>
+                    <a href="https://chatgpt.com/" target="_blank" rel="noopener" class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50">
+                        <i class="fa-solid fa-comment-dots text-emerald-600 text-lg w-6 text-center"></i>
+                        <span class="font-bold text-sm text-gray-700 flex-1">ChatGPT</span>
+                        <i class="fa-solid fa-arrow-up-right-from-square text-gray-300 text-xs"></i>
+                    </a>
+                    <a href="https://claude.ai/" target="_blank" rel="noopener" class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50">
+                        <i class="fa-solid fa-comment-dots text-orange-500 text-lg w-6 text-center"></i>
+                        <span class="font-bold text-sm text-gray-700 flex-1">Claude</span>
+                        <i class="fa-solid fa-arrow-up-right-from-square text-gray-300 text-xs"></i>
+                    </a>
+                    <a href="https://gemini.google.com/" target="_blank" rel="noopener" class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50">
+                        <i class="fa-solid fa-comment-dots text-blue-500 text-lg w-6 text-center"></i>
+                        <span class="font-bold text-sm text-gray-700 flex-1">Gemini</span>
+                        <i class="fa-solid fa-arrow-up-right-from-square text-gray-300 text-xs"></i>
+                    </a>
+                    <a href="https://www.perplexity.ai/" target="_blank" rel="noopener" class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50">
+                        <i class="fa-solid fa-comment-dots text-indigo-500 text-lg w-6 text-center"></i>
+                        <span class="font-bold text-sm text-gray-700 flex-1">Perplexity</span>
+                        <i class="fa-solid fa-arrow-up-right-from-square text-gray-300 text-xs"></i>
+                    </a>
+                    <a href="https://copilot.microsoft.com/" target="_blank" rel="noopener" class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50">
+                        <i class="fa-solid fa-comment-dots text-teal-600 text-lg w-6 text-center"></i>
+                        <span class="font-bold text-sm text-gray-700 flex-1">Copilot</span>
+                        <i class="fa-solid fa-arrow-up-right-from-square text-gray-300 text-xs"></i>
+                    </a>
+                    <p class="text-[11px] text-gray-400 text-center pt-1">タップするとブラウザまたはアプリで開きます（お使いのスマホにアプリが入っていればアプリが起動します）</p>
                 </div>
             </div>
         </section>
@@ -1083,20 +1099,31 @@ async function updateFacilityCountText(){
     }
 }
 
-function renderTravelList(){
+async function renderTravelList(){
     const container = document.getElementById('travel-list-container');
     if(!travelListCache.length){
         container.innerHTML = '<p class="text-center text-gray-400 text-sm py-6">まだ旅行がありません。<br>「新規スケジュールを作成」から始めましょう。</p>';
         return;
     }
     const myUid = window._currentUser ? window._currentUser.uid : '';
+
+    // 表示に必要なプロフィール名をまとめて解決
+    const uidsToResolve = new Map();
+    travelListCache.forEach(t=>{
+        if(t.ownerUid && t.ownerUid !== myUid) uidsToResolve.set(t.ownerUid, t.owner);
+        (t.sharedWithDetail||[]).forEach(o=> uidsToResolve.set(o.uid, o.email));
+    });
+    await Promise.all(Array.from(uidsToResolve.entries()).map(([uid,email])=>resolveProfileName_(uid,email)));
+
     container.innerHTML = travelListCache.map(t=>{
         const mine = t.ownerUid === myUid;
+        const ownerName = mine ? '' : (profileNameCache[t.ownerUid] || t.owner);
         const badge = mine
             ? '<span class="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">自分の旅行</span>'
-            : `<span class="text-[10px] bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full font-bold">共有 (${escapeHtml(t.owner)})</span>`;
-        const sharedInfo = mine && (t.sharedWith||[]).length
-            ? `<div class="text-[10px] text-gray-400 mt-1"><i class="fa-solid fa-users"></i> 共有中：${t.sharedWith.map(e=>escapeHtml(e)).join('、')}</div>`
+            : `<span class="text-[10px] bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full font-bold">共有 (${escapeHtml(ownerName)})</span>`;
+        const sharedNames = (t.sharedWithDetail||[]).map(o=>profileNameCache[o.uid] || o.email);
+        const sharedInfo = mine && sharedNames.length
+            ? `<div class="text-[10px] text-gray-400 mt-1"><i class="fa-solid fa-users"></i> 共有中：${sharedNames.map(n=>escapeHtml(n)).join('、')}</div>`
             : '';
         return `<div class="border border-gray-200 rounded-xl flex items-center hover:bg-gray-50 transition-colors">
             <button onclick="selectTravel('${t.id}')" class="flex-1 text-left p-3">
@@ -1245,7 +1272,7 @@ function selectTravel(travelId){
     const t = travelListCache.find(x=>x.id===travelId);
     if(!t){ showToast('旅行データが見つかりませんでした', true); return; }
     currentTravelId = t.id;
-    currentTravelMeta = { owner: t.owner, ownerUid: t.ownerUid, sharedWith: t.sharedWith || [] };
+    currentTravelMeta = { owner: t.owner, ownerUid: t.ownerUid, sharedWith: t.sharedWith || [], sharedWithDetail: t.sharedWithDetail || [] };
     appState = (t.data && t.data.itinerary) ? t.data : JSON.parse(JSON.stringify(fallbackInitialData));
     normalizeAppState();
     if(!appState.travelDays)   appState.travelDays = 1;
@@ -1263,17 +1290,37 @@ function selectTravel(travelId){
     loadPhotosForCurrentTravel();
 }
 
-function renderCurrentTravelShareInfo(){
+const profileNameCache = {};
+async function resolveProfileName_(uid, fallbackEmail){
+    if(!uid) return fallbackEmail || '';
+    if(profileNameCache[uid]) return profileNameCache[uid];
+    try{
+        const snap = await window._fs.getDoc(window._fs.doc(window._db,'users',uid));
+        const name = snap.exists() ? (snap.data().profileName || '') : '';
+        const result = name || fallbackEmail || '';
+        profileNameCache[uid] = result;
+        return result;
+    } catch(e){
+        return fallbackEmail || '';
+    }
+}
+
+async function renderCurrentTravelShareInfo(){
     const el = document.getElementById('current-travel-share-info');
     if(!el || !currentTravelMeta) return;
     const myUid = window._currentUser ? window._currentUser.uid : '';
     const mine = currentTravelMeta.ownerUid === myUid;
-    if(mine){
-        const list = currentTravelMeta.sharedWith || [];
-        el.textContent = list.length ? `共有中：${list.join('、')}` : '';
-    } else {
-        el.textContent = currentTravelMeta.owner ? `共有元：${currentTravelMeta.owner}` : '';
+    const parts = [];
+    if(!mine && currentTravelMeta.ownerUid){
+        const ownerName = await resolveProfileName_(currentTravelMeta.ownerUid, currentTravelMeta.owner);
+        parts.push(`共有元：${ownerName}さん`);
     }
+    const others = currentTravelMeta.sharedWithDetail || [];
+    if(others.length){
+        const names = await Promise.all(others.map(o=>resolveProfileName_(o.uid, o.email)));
+        parts.push(`共有中：${names.map(n=>`${n}さん`).join('、')}`);
+    }
+    el.textContent = parts.join('　');
 }
 
 // ===================================================
@@ -1678,26 +1725,164 @@ function closeVisitedFacilities(){
     stopVisitedMapSlideshow('visited-facilities-bg-slideshow');
 }
 
+// 観光施設の詳細版（地図表示・都道府県別ソート用に、市区町村コードも保持する）
+function collectVisitedFacilitiesDetailed_(){
+    const seen = new Map(); // title -> {title, placeCode, placeName}
+    travelListCache.forEach(t=>{
+        const d = t.data; if(!d || !d.itinerary) return;
+        const statuses = d.statuses || {};
+        d.itinerary.forEach(item=>{
+            if(statuses[item.id] !== '1') return;
+            const title = (item.title||'').trim();
+            if(!title) return;
+            if(FACILITY_EXCLUDE_KEYWORDS.some(k=>title.includes(k))) return;
+            if(seen.has(title)) return;
+            seen.set(title, { title, placeCode: item.placeCode || null, placeName: item.placeName || null });
+        });
+    });
+    return Array.from(seen.values());
+}
+
+async function renderFacilityMapAndList_(facilities){
+    const statusEl = document.getElementById('facility-map-status');
+    const svgWrap = document.getElementById('facility-map-svg-wrap');
+    const listEl = document.getElementById('facility-modal-list');
+    svgWrap.innerHTML = ''; listEl.innerHTML = ''; statusEl.style.display = 'block';
+
+    if(!facilities.length){
+        statusEl.innerHTML = 'まだ訪問した観光施設がありません。予定を完了にすると、ここに反映されます。';
+        return;
+    }
+
+    const withLocation = facilities.filter(f=>f.placeCode);
+    const withoutLocation = facilities.filter(f=>!f.placeCode);
+
+    // ---- 地図描画（市区町村が分かっている施設のみ、○マーカーで表示） ----
+    if(withLocation.length){
+        try{
+            const [geoFeatures, prefFeatures] = await Promise.all([
+                loadJapanMunicipalityGeoJson(),
+                loadJapanPrefectureGeoJson().catch(()=>[])
+            ]);
+            statusEl.style.display = 'none';
+            renderFacilityMap_(geoFeatures, prefFeatures, withLocation);
+        } catch(e){
+            console.error(e);
+            statusEl.style.display = 'block';
+            statusEl.textContent = '地図の作成に失敗しました。時間をおいて再度お試しください。';
+        }
+    } else {
+        statusEl.innerHTML = '市区町村が設定された観光施設がまだないため、地図は表示できません。<br>予定の編集画面で「市区町村」欄から候補を選ぶと、ここに反映されます。';
+    }
+
+    // ---- 一覧：都道府県別（北から順）に並び替え ----
+    const muniList = await loadMunicipalityList();
+    const muniByCode = {};
+    muniList.forEach(m=> muniByCode[m.code] = m);
+
+    const groups = new Map(); // prefCode(2桁) -> {prefName, items:[]}
+    withLocation.forEach(f=>{
+        const prefCode = f.placeCode.slice(0,2);
+        const m = muniByCode[f.placeCode];
+        const prefName = (m && m.pref) || '';
+        if(!groups.has(prefCode)) groups.set(prefCode, { prefName, items: [] });
+        groups.get(prefCode).items.push(f.title);
+    });
+    // 都道府県コードは北海道(01)→沖縄(47)の順に振られているため、コード順=北から順になる
+    const sortedGroups = Array.from(groups.entries()).sort((a,b)=>a[0].localeCompare(b[0]));
+
+    let html = sortedGroups.map(([code,g])=>{
+        const items = g.items.sort((a,b)=>a.localeCompare(b,'ja'))
+            .map(t=>`<div class="pl-4 py-1 border-b border-gray-100 last:border-0"><i class="fa-solid fa-torii-gate text-orange-400 mr-1.5"></i>${escapeHtml(t)}</div>`).join('');
+        return `<div class="mb-2"><div class="font-bold text-gray-700 bg-gray-100 rounded px-2 py-1 mb-1">${escapeHtml(g.prefName)}</div>${items}</div>`;
+    }).join('');
+
+    if(withoutLocation.length){
+        const items = withoutLocation.sort((a,b)=>a.title.localeCompare(b.title,'ja'))
+            .map(f=>`<div class="pl-4 py-1 border-b border-gray-100 last:border-0"><i class="fa-solid fa-torii-gate text-orange-400 mr-1.5"></i>${escapeHtml(f.title)}</div>`).join('');
+        html += `<div class="mb-2"><div class="font-bold text-gray-700 bg-gray-100 rounded px-2 py-1 mb-1">市区町村未設定</div>${items}</div>`;
+    }
+
+    listEl.innerHTML = html || '<p class="text-gray-400">まだ訪問した観光施設がありません。</p>';
+}
+
+function renderFacilityMap_(geoFeatures, prefFeatures, facilitiesWithLocation){
+    const wrap = document.getElementById('facility-map-svg-wrap');
+    wrap.innerHTML = '';
+    if(!geoFeatures || !geoFeatures.length){
+        wrap.innerHTML = '<p class="text-center text-red-500 text-xs py-10">地図データが空でした。時間をおいて再度お試しください。</p>';
+        return;
+    }
+    const width = 400, height = 380;
+    const collection = { type:'FeatureCollection', features: geoFeatures };
+    const projection = d3.geoMercator().fitSize([width,height], collection);
+    const path = d3.geoPath().projection(projection);
+
+    const svg = d3.select(wrap).append('svg')
+        .attr('viewBox', `0 0 ${width} ${height}`)
+        .attr('preserveAspectRatio', 'xMidYMid meet')
+        .style('width', '100%')
+        .style('height', 'auto')
+        .style('display', 'block')
+        .style('background', '#eff6ff')
+        .style('touch-action', 'none');
+
+    const zoomLayer = svg.append('g').attr('class', 'zoom-layer');
+
+    zoomLayer.selectAll('path.base').data(geoFeatures).enter().append('path')
+        .attr('class','base').attr('d', path)
+        .attr('fill', '#eef1f4').attr('stroke', '#d1d5db').attr('stroke-width', 0.25);
+
+    if(prefFeatures && prefFeatures.length){
+        zoomLayer.selectAll('path.pref').data(prefFeatures).enter().append('path')
+            .attr('class','pref').attr('d', path)
+            .attr('fill', 'none').attr('stroke', '#4b5563').attr('stroke-width', 0.35).attr('stroke-linejoin', 'round');
+    }
+
+    // 観光施設は「○」マーカー（塗りつぶさない円）で表示。同じ市区町村内は中心点に重ねて表示する
+    const codeSet = new Set(facilitiesWithLocation.map(f=>f.placeCode));
+    const markerFeatures = geoFeatures.filter(f=>codeSet.has(f.properties.N03_007));
+    zoomLayer.selectAll('circle.facility-marker').data(markerFeatures).enter().append('circle')
+        .attr('class','facility-marker')
+        .attr('cx', f=>path.centroid(f)[0])
+        .attr('cy', f=>path.centroid(f)[1])
+        .attr('r', 4)
+        .attr('fill', 'none')
+        .attr('stroke', '#FF7B54')
+        .attr('stroke-width', 1.8);
+
+    const zoom = d3.zoom()
+        .scaleExtent([1, 15])
+        .translateExtent([[0,0],[width,height]])
+        .on('zoom', (event) => { zoomLayer.attr('transform', event.transform); });
+    svg.call(zoom);
+
+    const controls = d3.select(wrap).append('div')
+        .attr('class', 'flex items-center justify-between mt-1 text-[10px] text-gray-400 px-0.5');
+    controls.append('span').text('ピンチ／ドラッグで拡大・移動できます');
+    controls.append('button')
+        .attr('class', 'text-teal-600 font-bold')
+        .text('表示をリセット')
+        .on('click', () => { svg.transition().duration(300).call(zoom.transform, d3.zoomIdentity); });
+}
+
 async function openVisitedFacilities(){
     document.getElementById('visited-facilities-modal').classList.remove('hidden');
     startVisitedMapSlideshow('visited-facilities-bg-slideshow');
     const statsEl = document.getElementById('facility-modal-stats-text');
-    const listEl = document.getElementById('facility-modal-list');
     statsEl.textContent = '集計中...';
-    listEl.innerHTML = '';
     try{
         const myName = profileDisplayName_() || (window._currentUser && window._currentUser.displayName) || 'あなた';
-        const facilities = collectVisitedFacilities_();
+        const facilitiesDetailed = collectVisitedFacilitiesDetailed_();
+        const facilityCount = facilitiesDetailed.length;
         const municipalities = collectVisitedMunicipalities_();
-        updateAndSaveMyVisitStats_(municipalities.size, facilities.size);
+        updateAndSaveMyVisitStats_(municipalities.size, facilityCount);
 
-        const abovePct = await computePercentileAbove_('visitedFacilityCount', facilities.size);
-        statsEl.innerHTML = `『${escapeHtml(myName)}』さん、あなたの観光施設訪問数は${facilities.size}件です。` +
+        const abovePct = await computePercentileAbove_('visitedFacilityCount', facilityCount);
+        statsEl.innerHTML = `『${escapeHtml(myName)}』さん、あなたの観光施設訪問数は${facilityCount}件です。` +
             (abovePct!=null ? `<br>この訪問数は、全ユーザーの${abovePct}％を上回っています。` : '');
 
-        listEl.innerHTML = facilities.size
-            ? Array.from(facilities).sort((a,b)=>a.localeCompare(b,'ja')).map(t=>`<div class="border-b border-gray-100 last:border-0 py-1.5"><i class="fa-solid fa-torii-gate text-orange-400 mr-1.5"></i>${escapeHtml(t)}</div>`).join('')
-            : '<p class="text-gray-400">まだ訪問した観光施設がありません。予定を完了にすると、ここに反映されます。</p>';
+        await renderFacilityMapAndList_(facilitiesDetailed);
     } catch(e){
         console.warn('facilities view failed', e.message);
         statsEl.textContent = '';
@@ -1717,12 +1902,9 @@ async function openVisitedMap(){
 
     const myName = profileDisplayName_() || (window._currentUser && window._currentUser.displayName) || 'あなた';
     const muniStatsEl = document.getElementById('municipality-stats-text');
-    const facStatsEl = document.getElementById('facility-stats-text');
-    const facHistoryEl = document.getElementById('facility-history-list');
     muniStatsEl.textContent = '集計中...';
-    facStatsEl.textContent = '集計中...';
 
-    // ---- 観光施設の集計・表示 ----
+    // ---- 市区町村の集計・表示 ----
     try{
         const facilities = collectVisitedFacilities_();
         const visited = collectVisitedMunicipalities_();
@@ -1734,17 +1916,9 @@ async function openVisitedMap(){
         const muniAbovePct = await computePercentileAbove_('visitedMunicipalityCount', visited.size);
         muniStatsEl.innerHTML = `『${escapeHtml(myName)}』さん、あなたの市区町村訪問数は${visited.size}件で、全${totalMunicipalities}市区町村のうち${muniPct}％です。` +
             (muniAbovePct!=null ? `<br>この訪問数は、全ユーザーの${muniAbovePct}％を上回っています。` : '');
-
-        const facAbovePct = await computePercentileAbove_('visitedFacilityCount', facilities.size);
-        facStatsEl.innerHTML = `『${escapeHtml(myName)}』さん、あなたの観光施設訪問数は${facilities.size}件です。` +
-            (facAbovePct!=null ? `<br>この訪問数は、全ユーザーの${facAbovePct}％を上回っています。` : '');
-
-        facHistoryEl.innerHTML = facilities.size
-            ? Array.from(facilities).sort((a,b)=>a.localeCompare(b,'ja')).map(t=>`<div class="border-b border-gray-100 last:border-0 py-1">${escapeHtml(t)}</div>`).join('')
-            : '<p class="text-gray-400">まだ訪問した観光施設がありません。</p>';
     } catch(e){
         console.warn('visit stats render failed', e.message);
-        muniStatsEl.textContent = ''; facStatsEl.textContent = '';
+        muniStatsEl.textContent = '';
     }
 
     // ---- 市区町村マップの描画 ----
@@ -1774,10 +1948,6 @@ async function openVisitedMap(){
     }
 }
 
-function toggleFacilityHistory(){
-    const el = document.getElementById('facility-history-list');
-    el.classList.toggle('hidden');
-}
 
 function renderJapanMunicipalityMap_(geoFeatures, prefFeatures, visitedMap){
     const wrap = document.getElementById('visited-map-svg-wrap');
@@ -2026,8 +2196,9 @@ function showCustomConfirm(msg,onOk,onCancel=null,isAlert=false){
     document.getElementById('custom-confirm-modal').classList.remove('hidden');
 }
 
+
 // ===================================================
-// AI旅程提案（デモ版 / Claude API 対応設計）
+// クラウドデータ（Firestore / 旅行ごとの読み込み・保存）
 // ===================================================
 function toggleAiPanel(){
     const panel = document.getElementById('ai-panel');
@@ -2036,111 +2207,6 @@ function toggleAiPanel(){
     chevron.style.transform = panel.classList.contains('open') ? 'rotate(180deg)' : '';
 }
 
-async function suggestItinerary(){
-    const dest  = document.getElementById('ai-dest').value.trim();
-    const days  = document.getElementById('ai-days').value;
-    const theme = document.getElementById('ai-theme').value.trim();
-    const status = document.getElementById('ai-status');
-    const result = document.getElementById('ai-result');
-
-    if(!dest){ showToast('目的地エリアを入力してください',true); return; }
-
-    status.textContent = 'AIが旅程を考えています...';
-    status.classList.remove('hidden');
-    result.classList.add('hidden');
-
-    // ★ Claude API 呼び出し（バックエンド経由に変更する場合はここのURLとヘッダーを差し替え）
-    // 現在はデモ用レスポンスを返す
-    try {
-        // --- バックエンド版（将来実装） ---
-        // const res = await fetch('https://your-backend.com/api/suggest', {
-        //     method:'POST',
-        //     headers:{'Content-Type':'application/json'},
-        //     body: JSON.stringify({ dest, days, theme })
-        // });
-        // const data = await res.json();
-        // const suggestions = data.itinerary;
-
-        // --- デモ版：固定レスポンス ---
-        await new Promise(r=>setTimeout(r,1200)); // ローディング演出
-        const suggestions = generateDemoSuggestion(dest, parseInt(days), theme);
-
-        result.innerHTML = suggestions.map((day,di)=>`
-            <div class="border-l-4 ${getDayStyle(di+1).border} pl-3">
-                <p class="font-bold text-gray-700 text-xs mb-1">${di+1}日目</p>
-                ${day.map(s=>`
-                    <div class="flex items-start gap-2 py-1">
-                        <span class="text-xs font-mono bg-gray-100 px-1.5 py-0.5 rounded shrink-0">${s.time}</span>
-                        <div>
-                            <p class="font-bold text-gray-800 text-xs">${s.title}</p>
-                            <p class="text-gray-500 text-xs">${s.note}</p>
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-        `).join('');
-
-        const addBtn = document.createElement('button');
-        addBtn.className = 'w-full mt-2 bg-purple-600 text-white font-bold py-2 rounded-lg text-xs hover:bg-purple-700';
-        addBtn.innerHTML = '<i class="fa-solid fa-plus mr-1"></i> この提案をスケジュールに追加';
-        addBtn.onclick = () => importAiSuggestion(suggestions);
-        result.appendChild(addBtn);
-
-        status.textContent = `${dest} の${days}日間プランを提案しました！`;
-        result.classList.remove('hidden');
-    } catch(e){
-        status.textContent = 'エラーが発生しました。もう一度お試しください。';
-        console.error(e);
-    }
-}
-
-function generateDemoSuggestion(dest, days, theme){
-    const baseSpots = [
-        [{time:"09:00",title:`${dest}観光スポットA`,note:"地元で人気の定番スポット。早めに訪問がおすすめ"},
-         {time:"11:30",title:`${dest}のランチ`,note:`${theme||'地元グルメ'}を楽しむ。名物料理を堪能`},
-         {time:"13:30",title:`${dest}観光スポットB`,note:"歴史・文化を感じられるスポット"},
-         {time:"16:00",title:`${dest}温泉・カフェ`,note:"旅の疲れを癒すひとやすみ"},
-         {time:"18:30",title:"夕食・地元居酒屋",note:"新鮮な地元食材を使った料理を堪能"}],
-        [{time:"08:30",title:`${dest}早朝散策`,note:"混雑前の朝の静けさを楽しむ"},
-         {time:"10:00",title:`${dest}観光スポットC`,note:`${theme||'定番'}スポットを巡る`},
-         {time:"12:00",title:"ランチ",note:"地元食材を使ったランチ"},
-         {time:"14:00",title:`${dest}観光スポットD`,note:"絶景ポイントや写真スポット"},
-         {time:"17:00",title:"土産・ショッピング",note:"地元の特産品をお土産に"}],
-        [{time:"09:00",title:`${dest}ラストスポット`,note:"最後の観光を満喫"},
-         {time:"11:00",title:"まとめランチ",note:"旅の締めくくりのランチ"},
-         {time:"13:00",title:"帰路へ",note:"お疲れさまでした！"}]
-    ];
-    return baseSpots.slice(0, days);
-}
-
-function importAiSuggestion(suggestions){
-    const baseDay = appState.travelDays + 1;
-    suggestions.forEach((day, di)=>{
-        const d = baseDay + di;
-        appState.travelDays = Math.max(appState.travelDays, d);
-        day.forEach(s=>{
-            appState.itinerary.push({
-                id: Date.now() + Math.random(),
-                day: d,
-                time: s.time,
-                title: s.title,
-                youtube: null,
-                map: null,
-                comment: s.note
-            });
-        });
-    });
-    sortItinerary();
-    renderAll();
-    markUnsaved();
-    showToast('AI提案をスケジュールに追加しました！');
-    document.getElementById('ai-panel').classList.remove('open');
-    document.getElementById('ai-panel-chevron').style.transform='';
-}
-
-// ===================================================
-// クラウドデータ（Firestore / 旅行ごとの読み込み・保存）
-// ===================================================
 async function reloadCurrentTravel(isManual=false){
     if(!currentTravelId) return;
     if(isManual) showSync(true);
