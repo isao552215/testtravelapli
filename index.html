@@ -132,9 +132,11 @@
         .flight-plane{ offset-rotate:auto; animation:fly 9s linear infinite; }
         @keyframes fly{ 0%{offset-distance:0%} 100%{offset-distance:100%} }
         .postcard{
-            background:var(--paper); color:var(--ink);
+            background:rgba(255,248,240,.55); color:var(--ink);
             border-radius:1.25rem;
             box-shadow:0 25px 50px -12px rgba(0,0,0,.45);
+            backdrop-filter:blur(6px);
+            -webkit-backdrop-filter:blur(6px);
             position:relative;
         }
         .postcard::before{
@@ -318,7 +320,7 @@
         <h4 class="font-bold text-sm mb-1" style="color:var(--ink)"><i class="fa-solid fa-city text-emerald-600"></i> 訪問先市区町村</h4>
         <div id="municipality-stats-text" class="text-xs bg-white/85 backdrop-blur-sm rounded-lg p-3 mb-3 leading-relaxed text-gray-600"></div>
         <div id="visited-map-status" class="text-center text-gray-400 text-sm py-10"><i class="fa-solid fa-spinner sync-spinner"></i> 集計中...</div>
-        <div id="visited-map-svg-wrap" class="w-full overflow-hidden rounded-lg border border-gray-200 bg-blue-50/90 backdrop-blur-sm"></div>
+        <div id="visited-map-svg-wrap" class="w-full overflow-hidden rounded-lg border border-gray-200 bg-blue-50/20 backdrop-blur-sm"></div>
         <div id="visited-map-list" class="mt-3 text-xs text-gray-500 bg-white/80 backdrop-blur-sm rounded-lg p-2"></div>
 
         <p class="mt-4 text-[10px] text-gray-400">地図データ: 国土数値情報（国土交通省）/ 加工: smartnews-smri/japan-topography</p>
@@ -338,7 +340,7 @@
     <div class="p-4 max-w-2xl w-full mx-auto flex-1">
         <div id="facility-modal-stats-text" class="text-xs bg-white/85 backdrop-blur-sm rounded-lg p-3 mb-3 leading-relaxed text-gray-600">集計中...</div>
         <div id="facility-map-status" class="text-center text-gray-400 text-sm py-6"><i class="fa-solid fa-spinner sync-spinner"></i> 集計中...</div>
-        <div id="facility-map-svg-wrap" class="w-full overflow-hidden rounded-lg border border-gray-200 bg-blue-50/90 backdrop-blur-sm mb-3"></div>
+        <div id="facility-map-svg-wrap" class="w-full overflow-hidden rounded-lg border border-gray-200 bg-blue-50/20 backdrop-blur-sm mb-3"></div>
         <div id="facility-modal-list" class="text-xs bg-white/85 backdrop-blur-sm rounded-lg p-3 space-y-1"></div>
     </div>
 </div>
@@ -1140,7 +1142,7 @@ async function renderTravelList(){
         const sharedInfo = mine && sharedNames.length
             ? `<div class="text-[10px] text-gray-400 mt-1"><i class="fa-solid fa-users"></i> 共有中：${sharedNames.map(n=>escapeHtml(n)).join('、')}</div>`
             : '';
-        return `<div class="border border-gray-200 rounded-xl flex items-center hover:bg-gray-50 transition-colors">
+        return `<div class="border border-gray-200 rounded-xl flex items-center bg-white hover:bg-gray-50 transition-colors">
             <button onclick="selectTravel('${t.id}')" class="flex-1 text-left p-3">
                 <div class="font-bold text-gray-800">${escapeHtml(t.name)}</div>
                 <div class="mt-1">${badge}</div>
@@ -1839,7 +1841,6 @@ function renderFacilityMap_(geoFeatures, prefFeatures, facilitiesWithLocation){
         .style('width', '100%')
         .style('height', 'auto')
         .style('display', 'block')
-        .style('background', '#eff6ff')
         .style('touch-action', 'none');
 
     const zoomLayer = svg.append('g').attr('class', 'zoom-layer');
@@ -1861,10 +1862,10 @@ function renderFacilityMap_(geoFeatures, prefFeatures, facilitiesWithLocation){
         .attr('class','facility-marker')
         .attr('cx', f=>path.centroid(f)[0])
         .attr('cy', f=>path.centroid(f)[1])
-        .attr('r', 4)
+        .attr('r', 2)
         .attr('fill', 'none')
         .attr('stroke', '#FF7B54')
-        .attr('stroke-width', 1.8);
+        .attr('stroke-width', 1.2);
 
     const zoom = d3.zoom()
         .scaleExtent([1, 15])
@@ -1984,7 +1985,6 @@ function renderJapanMunicipalityMap_(geoFeatures, prefFeatures, visitedMap){
         .style('width', '100%')
         .style('height', 'auto')
         .style('display', 'block')
-        .style('background', '#eff6ff')
         .style('touch-action', 'none');
 
     const zoomLayer = svg.append('g').attr('class', 'zoom-layer');
