@@ -1142,14 +1142,17 @@ async function renderTravelList(){
         const sharedInfo = mine && sharedNames.length
             ? `<div class="text-[10px] text-gray-400 mt-1"><i class="fa-solid fa-users"></i> 共有中：${sharedNames.map(n=>escapeHtml(n)).join('、')}</div>`
             : '';
+        const overallScore = (t.data && t.data.overallScore!=null && t.data.overallScore!=='') ? t.data.overallScore : null;
         return `<div class="border border-gray-200 rounded-xl flex items-center bg-white hover:bg-gray-50 transition-colors">
             <button onclick="selectTravel('${t.id}')" class="flex-1 text-left p-3">
                 <div class="font-bold text-gray-800">${escapeHtml(t.name)}</div>
                 <div class="mt-1">${badge}</div>
                 ${sharedInfo}
             </button>
+            ${mine ? `<button onclick="openScoreModalFromList('${t.id}')" class="text-gray-400 hover:text-yellow-500 px-2" title="採点"><i class="fa-solid fa-star"></i></button>` : ''}
             ${mine ? `<button onclick="openShareModal('${t.id}')" class="text-gray-400 hover:text-blue-600 px-3" title="共有設定"><i class="fa-solid fa-user-plus"></i></button>` : ''}
             ${mine ? `<button onclick="confirmDeleteTravel('${t.id}')" class="text-gray-400 hover:text-red-500 px-3" title="削除"><i class="fa-solid fa-trash"></i></button>` : ''}
+            ${overallScore!=null ? `<span class="text-lg font-black px-2" style="color:var(--dusk-bottom)">${overallScore}点</span>` : ''}
         </div>`;
     }).join('');
 }
@@ -2274,7 +2277,7 @@ function isTravelOwner_(){
     return !!(currentTravelMeta && window._currentUser && currentTravelMeta.ownerUid === window._currentUser.uid);
 }
 
-let scoreModalTarget = null; // 'overall' または itemId
+let scoreModalTarget = null; // 'overall' / itemId(詳細画面) / {listTravelId:...}(一覧画面)
 function openScoreModal(target){
     if(!isTravelOwner_()){ showToast('採点はこの旅行のオーナーのみ設定できます', true); return; }
     scoreModalTarget = target;
@@ -2292,6 +2295,20 @@ function openScoreModal(target){
     document.getElementById('score-modal').classList.remove('hidden');
 }
 
+// 旅行選択画面（一覧）から、その旅行を開かずに直接採点する
+function openScoreModalFromList(travelId){
+    const t = travelListCache.find(x=>x.id===travelId);
+    if(!t) return;
+    const myUid = window._currentUser ? window._currentUser.uid : '';
+    if(t.ownerUid !== myUid){ showToast('採点はこの旅行のオーナーのみ設定できます', true); return; }
+    scoreModalTarget = { listTravelId: travelId };
+    const current = (t.data && t.data.overallScore!=null && t.data.overallScore!=='') ? t.data.overallScore : 0;
+    document.getElementById('score-modal-title').innerHTML = `<i class="fa-solid fa-star text-yellow-400"></i> 「${escapeHtml(t.name)}」の採点`;
+    document.getElementById('score-slider').value = current;
+    document.getElementById('score-number').value = current;
+    document.getElementById('score-modal').classList.remove('hidden');
+}
+
 function syncScoreInputs(from){
     const slider = document.getElementById('score-slider');
     const number = document.getElementById('score-number');
@@ -2303,8 +2320,31 @@ function syncScoreInputs(from){
     }
 }
 
-function applyScore(){
+async function applyScore(){
     const v = Math.max(0, Math.min(100, parseInt(document.getElementById('score-number').value) || 0));
+
+    // 旅行選択画面（一覧）からの採点：Firestoreへ直接保存
+    if(scoreModalTarget && typeof scoreModalTarget === 'object' && scoreModalTarget.listTravelId){
+        const travelId = scoreModalTarget.listTravelId;
+        document.getElementById('score-modal').classList.add('hidden');
+        try{
+            await window._fs.updateDoc(window._fs.doc(window._db,'travels',travelId), {
+                'data.overallScore': v,
+                updatedAt: window._fs.serverTimestamp()
+            });
+            const t = travelListCache.find(x=>x.id===travelId);
+            if(t){ if(!t.data) t.data = {}; t.data.overallScore = v; }
+            renderTravelList();
+            // 今まさにこの旅行を開いている場合は、詳細画面側の表示も合わせて更新する
+            if(currentTravelId === travelId){ appState.overallScore = v; renderOverallScoreBadge(); }
+            showToast('採点を保存しました');
+        } catch(e){
+            console.error(e);
+            showToast('保存に失敗しました', true);
+        }
+        return;
+    }
+
     if(scoreModalTarget === 'overall'){
         appState.overallScore = v;
         renderOverallScoreBadge();
